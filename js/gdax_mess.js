@@ -1,0 +1,261 @@
+const moment = require('moment');
+const num = require('num');
+const events = require('events');
+const assert = require('assert');
+const RBTree = require('bintrees').RBTree;
+const Gdax = require('gdax');
+const pricef = require('./utils.js').pricef;
+const abbreviateSide = require('./utils.js').abbreviateSide;
+
+///////////////////////////////////////////////////////////////
+
+var convertExchangeTimestamp = function(ts) {
+  return moment(ts).toDate().getTime();
+}
+
+///////////////////////////////////////////////////////////////
+
+// Notes:
+// - This class is STATEFUL.
+// - Should be used per product, because each product needs its own order-book.
+var GdaxDefaultMsgNormalizer = function(productID, bookDepth) {
+  this.exchange = 'gdax';
+  this.productID = productID;
+  this.sequence = 0;
+  this.bookDepth = bookDepth || 30;
+  this.orderBook = null;
+}
+
+GdaxDefaultMsgNormalizer.prototype._nextSequence = function() {
+  var result = this.sequence;
+  this.sequence += 1;
+  return result;
+}
+
+GdaxDefaultMsgNormalizer.prototype.process = function(msg) {
+  assert(msg.product_id == this.productID);
+
+  const msg_type = msg['type'];
+  switch (msg_type) {
+    case 'open':
+      return this._handleOrderOpen(msg);
+    case 'done':
+      return this._handleOrderDone(msg);
+    case 'changed':
+      return this._handleOrderChanged(msg);
+    case 'match':
+      return this._handleMatch(msg);
+    case 'snapshot':
+      return this._handleOrderBookSnapshot(msg);
+    case 'l2update':
+      return this._handleOrderBookUpdate(msg);
+  }
+  return null;
+}
+
+GdaxDefaultMsgNormalizer.prototype._handleOrderOpen = function(msg) {
+  var order = {
+    order: {
+      orderID: msg.order_id,
+      side: abbreviateSide(msg.side),
+      price: pricef(msg.price),
+      qty: msg.remaining_size,
+      action: 'open'
+    },
+    exchange: this.exchange,
+    productID: this.productID,
+    exchangeTimestamp: convertExchangeTimestamp(msg.time),
+    timestamp: (new Date().getTime()),
+    sequenceNo: this._nextSequence()
+  };
+  return order;
+}
+
+GdaxDefaultMsgNormalizer.prototype._handleOrderDone = function(msg) {
+  if ((!'price' in msg) || (!'remaining_size' in msg)) {
+    return null;
+  }
+
+  var order = {
+    order: {
+      orderID: msg.order_id,
+      side: abbreviateSide(msg.side),
+      price: pricef(msg.price),
+      qty: msg.remaining_size,
+      action: msg.reason
+    },
+    exchange: this.exchange,
+    productID: this.productID,
+    exchangeTimestamp: convertExchangeTimestamp(msg.time),
+    timestamp: (new Date().getTime()),
+    sequenceNo: this._nextSequence()
+  };
+ return order;
+}
+
+GdaxDefaultMsgNormalizer.prototype._handleOrderChanged = function(msg) {
+  if ((!'old_size' in msg) || (!'new_size' in msg)) {
+    return null;
+  }
+
+  var order = {
+    order: {
+      orderID: msg.order_id,
+      side: abbreviateSide(msg.side),
+      price: pricef(msg.price),
+      qty: msg.new_size,
+      action: 'change'
+    },
+    exchange: this.exchange,
+    productID: this.productID,
+    exchangeTimestamp: convertExchangeTimestamp(msg.time),
+    timestamp: (new Date().getTime()),
+    sequenceNo: this._nextSequence(),
+  };
+  return order;
+}
+
+GdaxDefaultMsgNormalizer.prototype._handleMatch = function(msg) {
+  const makerSide = abbreviateSide(msg.side);
+  var buyOrderID;
+  var sellOrderID;
+  if (makerSide == 'b') {
+    buyOrderID = msg.maker_order_id;
+    sellOrderID = msg.taker_order_id;
+  } else {
+    buyOrderID = msg.taker_order_id;
+    sellOrderID = msg.maker_order_id;
+  }
+
+  var trade = {
+    trade: {
+      trade_id: msg.trade_id,
+      price: msg.price,
+      qty: msg.size,
+      makerSide: makerSide,
+      buyOrderID: buyOrderID,
+      sellOrderID: sellOrderID,
+    },
+    exchange: this.exchange,
+    productID: this.productID,
+    exchangeTimestamp: convertExchangeTimestamp(msg.time),
+    timestamp: (new Date().getTime()),
+    sequenceNo: this._nextSequence()
+  };
+  return trade;
+}
+
+GdaxDefaultMsgNormalizer.prototype._handleOrderBookSnapshot = function(msg) { 
+  var msgBids = msg.bids;
+  var bids = new RBTree(function(a, b) {
+    return a.price.cmp(b.price);
+  });
+  for (var i = 0; i < msgBids.length; ++i) {
+    bids.insert({price: pricef(msgBids[i][0]), qty: msgBids[i][1]});
+  }
+
+  var msgAsks = msg.asks;
+  var asks = new RBTree(function(a, b) {
+    return a.price.cmp(b.price);
+  })
+  for (var i = 0; i < msgAsks.length; ++i) {
+    asks.insert({price: pricef(msgAsks[i][0]), qty: msgAsks[i][1]});
+  }
+
+  this.orderBook = {
+    bids: bids,
+    asks: asks,
+  };
+  
+  return {
+    orderBook: this.orderBook,
+    exchange: this.exchange,
+    productID: this.productID,
+    exchangeTimestamp: 0,
+    timestamp: (new Date().getTime()),
+    sequenceNo: this._nextSequence()
+  };
+}
+
+GdaxDefaultMsgNormalizer.prototype._handleOrderBookUpdate = function(msg) { 
+  // type: 'l2update',
+  // product_id: 'BTC-USD',
+  // time: '2017-12-22T21:25:20.883Z',
+  // changes: [ [ 'buy', '14433.58000000', '0.791' ] ]
+  assert(this.orderBook);
+
+  for (var i = 0; i < msg.changes.length; ++i) {
+    var change = msg.changes[i];
+    var side = abbreviateSide(change[0]);
+
+    var tree = (side == 'b' ? this.orderBook.bids : this.orderBook.asks);
+    var price = pricef(change[1]);
+    var qty = change[2];
+
+    // RBTree will fail the insertion if it already contains the key. Therefore we need to remove
+    // first, then insert if qty > 0.
+    tree.remove({price: price});
+    if (!num(qty).eq(0)) {
+      tree.insert({price: price, qty: qty});
+    }
+  }
+  
+  // console.log(msg);
+  return {
+    orderBook: this.orderBook,
+    exchange: this.exchange,
+    productID: this.productID,
+    exchangeTimestamp: convertExchangeTimestamp(msg.time),
+    timestamp: (new Date().getTime()),
+    sequenceNo: this._nextSequence()
+  };
+}
+
+///////////////////////////////////////////////////////////////
+
+// Notes: 
+// - the usage of |channels| requires modifying gdax's package. gdax's Websocket doesn't 
+// support customized channels yet.
+var GdaxFeedHandler = function(productIDs, channels) {
+  this.exchange = 'gdax';
+  this.productIDs = productIDs;
+  this.channels = channels;
+  
+  this.productToNormalizers = {};
+  for (var i = 0; i < productIDs.length; ++i) {
+    var p = productIDs[i];
+    this.productToNormalizers[p] = new GdaxDefaultMsgNormalizer(p);
+  }
+
+  this.ws = null;
+  this.eventEmitter = new events.EventEmitter();
+}
+
+
+GdaxFeedHandler.prototype._handleGdaxMsg = function(msg) {
+  if (msg.type == 'subscriptions' || !'product_id' in msg) {
+    return;
+  }
+
+  msg = this.productToNormalizers[msg.product_id].process(msg);
+  if (msg) {
+    this.eventEmitter.emit('message', msg);
+  }
+}
+
+GdaxFeedHandler.prototype.start = function() {
+  if (this.ws) {
+    this.ws.disconnect();
+    this.ws.removeAllListeners();
+  }
+
+  this.ws = new Gdax.WebsocketClient(this.productIDs, this.channels);
+  this.ws.on('message', this._handleGdaxMsg.bind(this));
+}
+
+GdaxFeedHandler.prototype.on = function(eventName, callback) {
+  this.eventEmitter.on(eventName, callback);
+}
+
+module.exports.GdaxDefaultMsgNormalizer = GdaxDefaultMsgNormalizer;
+module.exports.GdaxFeedHandler = GdaxFeedHandler;
