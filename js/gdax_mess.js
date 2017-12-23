@@ -5,12 +5,23 @@ const assert = require('assert');
 const RBTree = require('bintrees').RBTree;
 const Gdax = require('gdax');
 const pricef = require('./utils.js').pricef;
-const abbreviateSide = require('./utils.js').abbreviateSide;
 const md = require('./market_data.js');
+
 ///////////////////////////////////////////////////////////////
 
 var convertExchangeTimestamp = function(ts) {
   return moment(ts).toDate().getTime();
+}
+
+var abbreviateSide = function(side) {
+  side = side.toLowerCase();
+  if (side === 'buy' || side === 'bid') {
+    return 'b';
+  } else if (side === 'sell' || side === 'ask') {
+    return 's';
+  }
+  throw side;
+
 }
 
 ///////////////////////////////////////////////////////////////

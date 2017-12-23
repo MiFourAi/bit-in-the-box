@@ -4,9 +4,9 @@ const GdaxFeedHandler = require('./gdax_mess.js').GdaxFeedHandler;
 var gfh = new GdaxFeedHandler(['BTC-USD'], ['full', 'level2']);
 
 gfh.on('message', function(book) {
-	if (book.md_type !== 'OrderBook') {
-		return;
-	}
+  if (book.md_type !== 'OrderBook') {
+    return;
+  }
 
   var bid1 = book.bids.max();
   var ask1 = book.asks.min();
@@ -14,9 +14,9 @@ gfh.on('message', function(book) {
 });
 
 // gfh.on('message', function(msg) {
-// 	if (msg.md_type === 'Order' || msg.md_type === 'Trade') {
-// 		console.log(msg);
-// 	}
+//  if (msg.md_type === 'Order' || msg.md_type === 'Trade') {
+//    console.log(msg);
+//  }
 // });
 
 gfh.start();
