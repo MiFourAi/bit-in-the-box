@@ -7,15 +7,15 @@ const pricef = require('./utils.js').pricef;
 const bitstampPusherKey = 'de504dc5763aeef9ff52';
 
 var BitstampDefaultMsgNormalizer = function(productID, bookDepth) {
-  this.exchange = 'bitstamp';
-  this.productID = productID;
-  this.sequence = 0;
+    this.exchange = 'bitstamp';
+    this.productID = productID;
+    this.sequence = 0;
 }
 
 BitstampDefaultMsgNormalizer.prototype._nextSequence = function() {
-  var result = this.sequence;
-  this.sequence += 1;
-  return result;
+    var result = this.sequence;
+    this.sequence += 1;
+    return result;
 }
 
 BitstampDefaultMsgNormalizer.prototype.process = function(msg) {
@@ -86,8 +86,8 @@ BitstampDefaultMsgNormalizer.prototype._handleOrderBookSnapshots = function(msg)
     var bids = [];
     var asks = [];
     for (var i = 0; i < msg.bids.length; ++i) {
-        bids.push({'price': msg.bids[i][0], 'qty': msg.bids[i][1]});
-        asks.push({'price': msg.asks[i][0], 'qty': msg.asks[i][1]});
+        bids.push({'price': pricef(msg.bids[i][0]), 'qty': msg.bids[i][1]});
+        asks.push({'price': pricef(msg.asks[i][0]), 'qty': msg.asks[i][1]});
     }
     msg['bids'] = bids;
     msg['asks'] = asks;
@@ -168,6 +168,8 @@ BitstampFeedHandler.prototype._handleTradeMsg = function(msg) {
 }
 
 BitstampFeedHandler.prototype._handleBitstampMsg = function(msg) {
+    // ToDd(Mi): change hardcoded products. find a way to encode
+    // products to the message without writing extra callbacks.
     msg = this.productToNormalizers['btcusd'].process(msg);
     if (msg) {
         this.eventEmitter.emit('message', msg);
