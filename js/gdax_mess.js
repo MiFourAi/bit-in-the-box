@@ -5,7 +5,7 @@ const assert = require('assert');
 const RBTree = require('bintrees').RBTree;
 const Gdax = require('gdax');
 const pricef = require('./utils.js').pricef;
-const abbreviateSide = require('./utils.js').abbreviateSide;
+const md = require('./market_data.js');
 
 ///////////////////////////////////////////////////////////////
 
@@ -13,16 +13,27 @@ var convertExchangeTimestamp = function(ts) {
   return moment(ts).toDate().getTime();
 }
 
+var abbreviateSide = function(side) {
+  side = side.toLowerCase();
+  if (side === 'buy' || side === 'bid') {
+    return 'b';
+  } else if (side === 'sell' || side === 'ask') {
+    return 's';
+  }
+  throw side;
+
+}
+
 ///////////////////////////////////////////////////////////////
 
 // Notes:
 // - This class is STATEFUL.
 // - Should be used per product, because each product needs its own order-book.
-var GdaxDefaultMsgNormalizer = function(productID, bookDepth) {
+
+var GdaxDefaultMsgNormalizer = function(productID) {
   this.exchange = 'gdax';
   this.productID = productID;
   this.sequence = 0;
-  this.bookDepth = bookDepth || 30;
   this.orderBook = null;
 }
 
@@ -53,21 +64,25 @@ GdaxDefaultMsgNormalizer.prototype.process = function(msg) {
   return null;
 }
 
-GdaxDefaultMsgNormalizer.prototype._handleOrderOpen = function(msg) {
-  var order = {
-    order: {
-      orderID: msg.order_id,
-      side: abbreviateSide(msg.side),
-      price: pricef(msg.price),
-      qty: msg.remaining_size,
-      action: 'open'
-    },
-    exchange: this.exchange,
-    productID: this.productID,
+var makeOrder = function(exchange, productID, msg, qty, action, sequenceNo) {
+  var options = {
+    exchange: exchange,
+    productID: productID,
     exchangeTimestamp: convertExchangeTimestamp(msg.time),
     timestamp: (new Date().getTime()),
-    sequenceNo: this._nextSequence()
+    sequenceNo: sequenceNo,
+    orderID: msg.order_id,
+    side: abbreviateSide(msg.side),
+    price: pricef(msg.price),
+    qty: msg.remaining_size,
+    action: action
   };
+  return new md.Order(options);
+}
+
+GdaxDefaultMsgNormalizer.prototype._handleOrderOpen = function(msg) {
+  var order = makeOrder(this.exchange, this.productID, msg, msg.remaining_size, 'open', 
+    this._nextSequence());
   return order;
 }
 
@@ -76,20 +91,8 @@ GdaxDefaultMsgNormalizer.prototype._handleOrderDone = function(msg) {
     return null;
   }
 
-  var order = {
-    order: {
-      orderID: msg.order_id,
-      side: abbreviateSide(msg.side),
-      price: pricef(msg.price),
-      qty: msg.remaining_size,
-      action: msg.reason
-    },
-    exchange: this.exchange,
-    productID: this.productID,
-    exchangeTimestamp: convertExchangeTimestamp(msg.time),
-    timestamp: (new Date().getTime()),
-    sequenceNo: this._nextSequence()
-  };
+  var order = makeOrder(this.exchange, this.productID, msg, msg.remaining_size, msg.reason, 
+    this._nextSequence());
  return order;
 }
 
@@ -98,20 +101,8 @@ GdaxDefaultMsgNormalizer.prototype._handleOrderChanged = function(msg) {
     return null;
   }
 
-  var order = {
-    order: {
-      orderID: msg.order_id,
-      side: abbreviateSide(msg.side),
-      price: pricef(msg.price),
-      qty: msg.new_size,
-      action: 'change'
-    },
-    exchange: this.exchange,
-    productID: this.productID,
-    exchangeTimestamp: convertExchangeTimestamp(msg.time),
-    timestamp: (new Date().getTime()),
-    sequenceNo: this._nextSequence(),
-  };
+  var order = makeOrder(this.exchange, this.productID, msg, msg.new_size, 'change', 
+    this._nextSequence());
   return order;
 }
 
@@ -127,22 +118,33 @@ GdaxDefaultMsgNormalizer.prototype._handleMatch = function(msg) {
     sellOrderID = msg.maker_order_id;
   }
 
-  var trade = {
-    trade: {
-      trade_id: msg.trade_id,
-      price: msg.price,
-      qty: msg.size,
-      makerSide: makerSide,
-      buyOrderID: buyOrderID,
-      sellOrderID: sellOrderID,
-    },
+  var tradeOptions = {
+    tradeID: msg.trade_id,
+    price: pricef(msg.price),
+    qty: msg.size,
+    makerSide: makerSide,
+    buyOrderID: buyOrderID,
+    sellOrderID: sellOrderID,
     exchange: this.exchange,
     productID: this.productID,
     exchangeTimestamp: convertExchangeTimestamp(msg.time),
     timestamp: (new Date().getTime()),
     sequenceNo: this._nextSequence()
   };
-  return trade;
+  return new md.Trade(tradeOptions);
+}
+
+var makeOrderBook = function(exchange, productID, bids, asks, sequenceNo, exchangeTimestamp) {
+  var options = {
+    exchange: exchange,
+    productID: productID,
+    exchangeTimestamp: exchangeTimestamp,
+    timestamp: (new Date().getTime()),
+    sequenceNo: sequenceNo,
+    bids: bids,
+    asks: asks
+  };
+  return new md.OrderBook(options);
 }
 
 GdaxDefaultMsgNormalizer.prototype._handleOrderBookSnapshot = function(msg) { 
@@ -166,22 +168,12 @@ GdaxDefaultMsgNormalizer.prototype._handleOrderBookSnapshot = function(msg) {
     bids: bids,
     asks: asks,
   };
-  
-  return {
-    orderBook: this.orderBook,
-    exchange: this.exchange,
-    productID: this.productID,
-    exchangeTimestamp: 0,
-    timestamp: (new Date().getTime()),
-    sequenceNo: this._nextSequence()
-  };
+
+  return makeOrderBook(this.exchange, this.productID, bids, asks, this._nextSequence(), 
+    /*exchangeTimestamp=*/0);
 }
 
 GdaxDefaultMsgNormalizer.prototype._handleOrderBookUpdate = function(msg) { 
-  // type: 'l2update',
-  // product_id: 'BTC-USD',
-  // time: '2017-12-22T21:25:20.883Z',
-  // changes: [ [ 'buy', '14433.58000000', '0.791' ] ]
   assert(this.orderBook);
 
   for (var i = 0; i < msg.changes.length; ++i) {
@@ -200,15 +192,8 @@ GdaxDefaultMsgNormalizer.prototype._handleOrderBookUpdate = function(msg) {
     }
   }
   
-  // console.log(msg);
-  return {
-    orderBook: this.orderBook,
-    exchange: this.exchange,
-    productID: this.productID,
-    exchangeTimestamp: convertExchangeTimestamp(msg.time),
-    timestamp: (new Date().getTime()),
-    sequenceNo: this._nextSequence()
-  };
+  return makeOrderBook(this.exchange, this.productID, this.orderBook.bids, this.orderBook.asks, 
+    this._nextSequence(), convertExchangeTimestamp(msg.time));
 }
 
 ///////////////////////////////////////////////////////////////
