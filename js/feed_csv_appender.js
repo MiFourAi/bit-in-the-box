@@ -11,7 +11,6 @@ const config = require('./config.js').config;
 
 var createCsvWriter = function (dir) {
     writer = csvWriter();
-    console.log(dir + '.csv');
     writer.pipe(fs.createWriteStream(dir + '.csv'));
     return writer;
 }
