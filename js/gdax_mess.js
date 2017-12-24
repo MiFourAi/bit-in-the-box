@@ -4,6 +4,7 @@ const events = require('events');
 const assert = require('assert');
 const RBTree = require('bintrees').RBTree;
 const Gdax = require('gdax');
+const FeedHandler = require('./feed_handler.js').FeedHandler;
 const pricef = require('./utils.js').pricef;
 const md = require('./market_data.js');
 
@@ -202,20 +203,17 @@ GdaxDefaultMsgNormalizer.prototype._handleOrderBookUpdate = function(msg) {
 // - the usage of |channels| requires modifying gdax's package. gdax's Websocket doesn't 
 // support customized channels yet.
 var GdaxFeedHandler = function(productIDs, channels) {
+  FeedHandler.call(this, productIDs, channels);
   this.exchange = 'gdax';
-  this.productIDs = productIDs;
-  this.channels = channels;
   
   this.productToNormalizers = {};
   for (var i = 0; i < productIDs.length; ++i) {
     var p = productIDs[i];
     this.productToNormalizers[p] = new GdaxDefaultMsgNormalizer(p);
   }
-
-  this.ws = null;
-  this.eventEmitter = new events.EventEmitter();
 }
 
+GdaxFeedHandler.prototype = Object.create(FeedHandler.prototype);
 
 GdaxFeedHandler.prototype._handleGdaxMsg = function(msg) {
   if (msg.type == 'subscriptions' || !'product_id' in msg) {
@@ -236,10 +234,6 @@ GdaxFeedHandler.prototype.start = function() {
 
   this.ws = new Gdax.WebsocketClient(this.productIDs, this.channels);
   this.ws.on('message', this._handleGdaxMsg.bind(this));
-}
-
-GdaxFeedHandler.prototype.on = function(eventName, callback) {
-  this.eventEmitter.on(eventName, callback);
 }
 
 module.exports.GdaxDefaultMsgNormalizer = GdaxDefaultMsgNormalizer;
