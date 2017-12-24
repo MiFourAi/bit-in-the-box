@@ -15,7 +15,7 @@ var epochToDate = function(epochts) {
 }
 
 var makeDir = function(dir) {
-    shell.mkdir('-p', dir);
+	shell.mkdir('-p', dir);
 }
 
 module.exports.pricef = num2f;
