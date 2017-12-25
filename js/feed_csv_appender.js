@@ -7,7 +7,6 @@ const pricef = require('./utils.js').pricef;
 const epochToDate = require('./utils.js').epochToDate;
 const epochToTime = require('./utils.js').epochToTime;
 const makeDir = require('./utils.js').makeDir;
-const config = require('./config.js').config;
 
 var createCsvWriter = function (dir) {
     writer = csvWriter();
@@ -15,7 +14,8 @@ var createCsvWriter = function (dir) {
     return writer;
 }
 
-var FeedCsvAppender = function(productID, exchange, msgType, blockTime) {
+var FeedCsvAppender = function(basePath, productID, exchange,msgType, blockTime) {
+	this.basePath = basePath;
 	this.productID = productID;
 	this.exchange = exchange;
 	this.msgType = msgType;
@@ -61,7 +61,7 @@ FeedCsvAppender.prototype.append = function(msg) {
 		this.filetime = epochToTime(msg.timestamp);
 		var date = epochToDate(msg.timestamp);
 		var outdir = path.join(
-			config.base_path, this.exchange, this.productID,
+			this.basePath, this.exchange, this.productID,
 			this.msgType, date);
 		var outfile = path.join(outdir, this.filetime);
 		makeDir(outdir);

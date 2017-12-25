@@ -1,6 +1,8 @@
 const FeedCsvAppender = require('./feed_csv_appender').FeedCsvAppender;
+const config = require('./config.js').config;
 
-var appender = new FeedCsvAppender('btcusd', 'bitstamp', 'order_book', 300);
+var appender = new FeedCsvAppender(
+	config.basePath, 'btcusd', 'bitstamp', 'order_book', 300);
 msg = {
 	exchange: 'bitstamp',
 	productID: 'btcusd',
