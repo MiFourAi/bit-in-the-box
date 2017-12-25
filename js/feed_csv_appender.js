@@ -9,9 +9,9 @@ const epochToTime = require('./utils.js').epochToTime;
 const makeDir = require('./utils.js').makeDir;
 
 var createCsvWriter = function (dir) {
-    writer = csvWriter();
-    writer.pipe(fs.createWriteStream(dir + '.csv'));
-    return writer;
+	writer = csvWriter();
+	writer.pipe(fs.createWriteStream(dir + '.csv'));
+	return writer;
 }
 
 var FeedCsvAppender = function(basePath, productID, exchange,msgType, blockTime) {
@@ -34,7 +34,7 @@ FeedCsvAppender.prototype._flatten = function(msg, suffix = '') {
 	var result = {};
 	for (var key in msg) {
 		var value = msg[key];
-		var uniqkey = key + suffix;
+		var uniqKey = key + suffix;
 		if (Array.isArray(value)) {
 			for (var i = 0; i < value.length; ++i) {
 				var tmp = this._flatten(value[i], '_' + String(i+1));
@@ -43,14 +43,14 @@ FeedCsvAppender.prototype._flatten = function(msg, suffix = '') {
 				}
 			}
 		} else if (value instanceof num) {
-			result[uniqkey] = value.toString();
+			result[uniqKey] = value.toString();
 		} else if (typeof(value) === 'object') {
 			var tmp = this._flatten(value[i], suffix);
 			for (var subkey in tmp) {
 				result[key + '_' + subkey] = tmp[subkey];
 			}
 		} else {
-			result[uniqkey] = value;
+			result[uniqKey] = value;
 		}
 	}
 	return result;
