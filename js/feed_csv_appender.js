@@ -44,7 +44,7 @@ FeedCsvAppender.prototype._flatten = function(msg, suffix = '') {
 			}
 		} else if (value instanceof num) {
 			result[uniqkey] = value.toString();
-		} else if (typeof(value) == 'object') {
+		} else if (typeof(value) === 'object') {
 			var tmp = this._flatten(value[i], suffix);
 			for (var subkey in tmp) {
 				result[key + '_' + subkey] = tmp[subkey];
