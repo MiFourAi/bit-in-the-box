@@ -14,12 +14,12 @@ var createCsvWriter = function (dir) {
 	return writer;
 }
 
-var FeedCsvAppender = function(basePath, productID, exchange,msgType, blockTime) {
+var FeedCsvAppender = function(basePath, productID, exchange, msgType, blockTimeMs) {
 	this.basePath = basePath;
 	this.productID = productID;
 	this.exchange = exchange;
 	this.msgType = msgType;
-	this.blockTime = blockTime;
+	this.blockTimeMs = blockTimeMs;
 	this.writer = null;
 }
 
@@ -58,6 +58,8 @@ FeedCsvAppender.prototype._flatten = function(msg, suffix = '') {
 
 FeedCsvAppender.prototype.append = function(msg) {
 	if (!this.writer) {
+		this.lastCheckpointTime = msg.timestamp;
+		// This is a string, not a number containing the epoch time.
 		this.filetime = epochToTime(msg.timestamp);
 		var date = epochToDate(msg.timestamp);
 		var outdir = path.join(
@@ -69,7 +71,7 @@ FeedCsvAppender.prototype.append = function(msg) {
 	}
 	var flattenMsg = this._flatten(msg);
 	this.writer.write(flattenMsg);
-	if (msg.timestamp - this.filetime >= this.blockTime) {
+	if (msg.timestamp - this.lastCheckpointTime >= this.blockTimeMs) {
 		this.finishWriting();
 	}
 }
