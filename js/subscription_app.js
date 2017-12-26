@@ -13,7 +13,6 @@ for (var product of bitstampConfig.products) {
 	bitstampCsvAppenders[product] = {};
 	for (var channel in bitstampConfig.channels) {
 		var normMsgType = bitstampConfig.channels[channel];
-		console.log(normMsgType)
 		bitstampCsvAppenders[product][normMsgType] = new FeedCsvAppender(
 			config.basePath, product, 'bitstamp', channel, config.blockTime);
 	}
