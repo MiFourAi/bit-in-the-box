@@ -37,7 +37,7 @@ def strfdate(s):
 	return datetime.strftime(s, PATTERN_DATE)
 
 
-class TestStringMethods(unittest.TestCase):
+class TestDatetimeMethods(unittest.TestCase):
 
 	def test_time(self):
 		test_time = '20170104T101010'
