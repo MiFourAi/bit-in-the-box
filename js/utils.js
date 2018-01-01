@@ -7,7 +7,9 @@ var num2f = function(f) {
 }
 
 var epochToTime = function(epochts) {
-	return moment(epochts).format('YYYYMMDDThhmmss');
+  // HH: 24 hour time.
+  // hh: 12 hour time.
+	return moment(epochts).format('YYYYMMDDTHHmmss');
 }
 
 var epochToDate = function(epochts) {
