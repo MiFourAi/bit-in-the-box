@@ -51,7 +51,7 @@ var makeOrder = function(exchange, productID, msg, sequenceNo) {
     var options = {
         exchange: exchange,
         productID: productID,
-        exchangeTimestamp: msg.datetime,
+        exchangeTimestamp: msg.datetime * 1000,
         timestamp: (new Date().getTime()),
         sequenceNo: sequenceNo,
         orderID: msg.id,
@@ -73,7 +73,7 @@ var makeOrderBook = function(exchange, productID, msg, sequenceNo) {
     var options = {
         exchange: exchange,
         productID: productID,
-        exchangeTimestamp: msg.datetime,
+        exchangeTimestamp: msg.datetime * 1000,
         timestamp: (new Date().getTime()),
         sequenceNo: sequenceNo,
         bids: msg.bids,
@@ -104,7 +104,7 @@ var makeTrades = function(exchange, productID, msg, sequenceNo) {
         sellOrderID: msg.sell_order_id,
         exchange: exchange,
         productID: productID,
-        exchangeTimestamp: msg.timestamp,
+        exchangeTimestamp: msg.timestamp * 1000,
         timestamp: (new Date().getTime()),
         sequenceNo: sequenceNo,
     };
