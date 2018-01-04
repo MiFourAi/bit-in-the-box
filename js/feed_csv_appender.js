@@ -14,12 +14,14 @@ var createCsvWriter = function (dir) {
 	return writer;
 }
 
-var FeedCsvAppender = function(basePath, productID, exchange, msgType, blockTimeMs) {
+var FeedCsvAppender = function(basePath, productID, exchange, msgType, 
+	blockTimeMs, unwantedCsvHeaders) {
 	this.basePath = basePath;
 	this.productID = productID;
 	this.exchange = exchange;
 	this.msgType = msgType;
 	this.blockTimeMs = blockTimeMs;
+	this.unwantedCsvHeaders = unwantedCsvHeaders || [];
 	this.writer = null;
 }
 
@@ -58,6 +60,16 @@ FeedCsvAppender.prototype._flatten = function(msg, suffix = '') {
 	return result;
 }
 
+FeedCsvAppender.prototype._removeUnwantedHeaders = function(msg) {
+	for (var i = 0; i < this.unwantedCsvHeaders.length; ++i) {
+		const header = this.unwantedCsvHeaders[i];
+		if (header in msg) {
+			delete msg[header];
+		}
+	}
+	return msg;
+}
+
 FeedCsvAppender.prototype.append = function(msg) {
 	if (!this.writer) {
 		this.lastCheckpointTime = msg.timestamp;
@@ -72,6 +84,7 @@ FeedCsvAppender.prototype.append = function(msg) {
 		this.writer = createCsvWriter(outfile);
 	}
 	var flattenMsg = this._flatten(msg);
+	flattenMsg = this._removeUnwantedHeaders(flattenMsg);
 	this.writer.write(flattenMsg);
 	if (msg.timestamp - this.lastCheckpointTime >= this.blockTimeMs) {
 		this.finishWriting();

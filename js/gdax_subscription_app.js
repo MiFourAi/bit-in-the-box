@@ -35,7 +35,8 @@ var ProductMdCsvAppender = function(productID) {
     const md = mdTypes[i];
     // TODO(mike): Read the storage root path from the config once we can 
     // specify the path in an un-tracked config file.
-    this.csvAppenders[md] = new FeedCsvAppender('../..', productID, 'gdax', md, config.blockTime);
+    this.csvAppenders[md] = new FeedCsvAppender('../..', productID, 'gdax', md, 
+      config.blockTime, config.unwantedCsvHeaders);
   }
   this.lastBookWrittenSeqNo = -gdaxConfig.bookSamplingSeqInterval - 1;
   this.msgCounter = 0;

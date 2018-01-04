@@ -18,7 +18,7 @@ for (var product of bitstampConfig.products) {
 	bitstampCsvAppenders[product] = {};
 	for (var md of mdTypes) {
 		bitstampCsvAppenders[product][md] = new FeedCsvAppender(
-			config.basePath, product, 'bitstamp', md, config.blockTime);
+			config.basePath, product, 'bitstamp', md, config.blockTime, config.unwantedCsvHeaders);
 	}
 }
 
