@@ -94,7 +94,7 @@ BitstampDefaultMsgNormalizer.prototype._handleOrderBookSnapshots = function(msg)
     return makeOrderBook(this.exchange, this.productID, msg, this._nextSequence());
 }
 
-var makeTrades = function(exchange, productID, msg, sequenceNo) {
+var makeTrade = function(exchange, productID, msg, sequenceNo) {
     var options = {
         tradeID: msg.id,
         price: pricef(msg.price),
@@ -113,7 +113,7 @@ var makeTrades = function(exchange, productID, msg, sequenceNo) {
 
 BitstampDefaultMsgNormalizer.prototype._handleTrades = function(msg) {
     msg['side'] = msg.type;
-    return makeTrades(this.exchange, this.productID, msg, this._nextSequence());
+    return makeTrade(this.exchange, this.productID, msg, this._nextSequence());
 }
 
 // valid channels: live_orders, order_book, live_trades.

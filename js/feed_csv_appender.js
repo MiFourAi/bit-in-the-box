@@ -35,7 +35,9 @@ FeedCsvAppender.prototype._flatten = function(msg, suffix = '') {
 	for (var key in msg) {
 		var value = msg[key];
 		var uniqKey = key + suffix;
-		if (Array.isArray(value)) {
+		if (value === null) {
+			result[uniqKey] = '';
+		} else if (Array.isArray(value)) {
 			for (var i = 0; i < value.length; ++i) {
 				var tmp = this._flatten(value[i], '_' + String(i+1));
 				for (var subkey in tmp) {
