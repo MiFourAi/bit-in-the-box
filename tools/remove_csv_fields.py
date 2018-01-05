@@ -3,9 +3,8 @@ import csv
 import re
 
 
-def remove_csv_exchange_and_product_id(csv_filepath):
-  tmp_csv_filepath = csv_filepath + '.tmp'
-  with open(csv_filepath, 'r') as rf, open(tmp_csv_filepath, 'w') as wf:
+def remove_csv_exchange_and_product_id(csv_filepath, out_csv_filepath):
+  with open(csv_filepath, 'r') as rf, open(out_csv_filepath, 'w') as wf:
     for row in rf:
       row = row.split(',')
       # Hacky. Assuming that exchange, productID are the first two
@@ -13,13 +12,17 @@ def remove_csv_exchange_and_product_id(csv_filepath):
       row = row[2:]
       row = ','.join(row)
       wf.write(row)
-  os.rename(tmp_csv_filepath, csv_filepath)
 
-ROOT_DIR = '..'
+ROOT_DIR = '../..'
 EXCHANGES = ['gdax', 'bitstamp']
 
 # %YYYYMMMSS%T%HHmmss%.csv
 CSV_FILENAME_PATTERN = re.compile('\d{8}T\d{6}\.csv')
+
+
+def mkdir_if_not_exist(dirpath):
+  if not os.path.isdir(dirpath):
+    os.makedirs(dirpath)
 
 
 def main():
@@ -29,18 +32,16 @@ def main():
       for dirpath, _, filenames in os.walk(exchange_path):
         filenames = filter(
             lambda x: CSV_FILENAME_PATTERN.match(x) is not None, filenames)
+        # Output the fils to a different folder with '_fixed' appended to the
+        # exchange name. This is to avoid corruptting the source data.
+        out_dirpath = dirpath.replace(exchange + '/', exchange + '_fixed/')
+        mkdir_if_not_exist(out_dirpath)
         for fn in filenames:
           csv_filepath = os.path.join(dirpath, fn)
-          print csv_filepath
-          # IMPORTANT!
-          # By default the call to remove_csv_exchange_and_product_id is turned
-          # off, before enabling it:
-          # 1. Make sure you backup the data before using this script!
-          # 2. Make sure that ALL the csv files under the exchange directory have
-          # "exhange,productID" as the first two fields. This script is very hacky
-          # and it could cause great damage to the data if not properly used.
+          out_csv_filepath = os.path.join(out_dirpath, fn)
+          print 'input={}, output={}'.format(csv_filepath, out_csv_filepath)
 
-          # remove_csv_exchange_and_product_id(csv_filepath)
+          remove_csv_exchange_and_product_id(csv_filepath, out_csv_filepath)
 
 if __name__ == '__main__':
   main()
