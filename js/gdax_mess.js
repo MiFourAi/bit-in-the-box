@@ -25,6 +25,10 @@ var abbreviateSide = function(side) {
 
 }
 
+var normalizeProductID = function (productID) {
+  return productID.replace('-', '').toLowerCase();
+}
+
 ///////////////////////////////////////////////////////////////
 
 // Notes:
@@ -271,3 +275,4 @@ GdaxFeedHandler.prototype.start = function() {
 module.exports.GdaxDefaultMsgNormalizer = GdaxDefaultMsgNormalizer;
 module.exports.GdaxFixDepthOrderBookConverter = GdaxFixDepthOrderBookConverter;
 module.exports.GdaxFeedHandler = GdaxFeedHandler;
+module.exports.normalizeProductID = normalizeProductID;
