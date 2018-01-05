@@ -77,8 +77,7 @@ FeedCsvAppender.prototype.append = function(msg) {
 		this.filetime = epochToTime(msg.timestamp);
 		var date = epochToDate(msg.timestamp);
 		var outdir = path.join(
-			this.basePath, this.exchange, this.productID,
-			this.msgType, date);
+			this.basePath, this.msgType, this.exchange, this.productID, date);
 		var outfile = path.join(outdir, this.filetime);
 		makeDir(outdir);
 		this.writer = createCsvWriter(outfile);

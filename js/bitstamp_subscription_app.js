@@ -8,7 +8,7 @@ var bitstampConfig = config.bitstamp;
 
 var bfh = new BitstampFeedHandler(
 	bitstampConfig.products,
-	['live_orders', 'order_book', 'live_trades']);
+	bitstampConfig.channels);
 
 var bitstampCsvAppenders = {};
 
@@ -18,7 +18,8 @@ for (var product of bitstampConfig.products) {
 	bitstampCsvAppenders[product] = {};
 	for (var md of mdTypes) {
 		bitstampCsvAppenders[product][md] = new FeedCsvAppender(
-			config.basePath, product, 'bitstamp', md, config.blockTime, config.unwantedCsvHeaders);
+			config.basePath, product, 'bitstamp', md,
+			config.blockTime, config.unwantedCsvHeaders);
 	}
 }
 

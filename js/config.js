@@ -7,6 +7,7 @@ config.unwantedCsvHeaders = ['exchange', 'productID'];
 
 config.bitstamp = {
 	products: ['btcusd'],
+	channels: ['live_orders', 'order_book', 'live_trades'],
 }
 
 config.bitfinex = {}
