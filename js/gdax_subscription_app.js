@@ -1,6 +1,7 @@
 const pricef = require('./utils.js').pricef;
 const GdaxFeedHandler = require('./gdax_mess.js').GdaxFeedHandler;
 const GdaxFixDepthOrderBookConverter = require('./gdax_mess.js').GdaxFixDepthOrderBookConverter;
+const gdaxNormalizeProductID = require('./gdax_mess.js').normalizeProductID;
 const FeedCsvAppender = require('./feed_csv_appender').FeedCsvAppender;
 const config = require('./config.js').config;
 
@@ -35,7 +36,8 @@ var ProductMdCsvAppender = function(productID) {
     const md = mdTypes[i];
     // TODO(mike): Read the storage root path from the config once we can 
     // specify the path in an un-tracked config file.
-    this.csvAppenders[md] = new FeedCsvAppender('../..', productID, 'gdax', md, 
+    this.csvAppenders[md] = new FeedCsvAppender('../../captured_md', 
+      gdaxNormalizeProductID(productID), 'gdax', md, 
       config.blockTime, config.unwantedCsvHeaders);
   }
   this.lastBookWrittenSeqNo = -gdaxConfig.bookSamplingSeqInterval - 1;
