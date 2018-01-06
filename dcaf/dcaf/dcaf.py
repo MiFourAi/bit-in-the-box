@@ -7,7 +7,7 @@ import numpy as np
 import utils
 
 global __ROOT_PATH
-__ROOT_PATH = '/Users/wenshuaiye/Dropbox/bitcoin_files/sample_data'
+__ROOT_PATH = '/Users/wenshuaiye/Kaggle/bitcoin/data'
 
 def set_path(path):
 	__ROOT_PATH = path
@@ -91,7 +91,7 @@ class Query(object):
 
 	def _walk_paths(self, table):
 		cross_products = itertools.product(
-			self._exchanges, self._products, [table])
+			[table], self._exchanges, self._products)
 		paths = [os.path.join(get_path(), '/'.join(list(cp))) for cp in
 			cross_products]
 
@@ -119,8 +119,8 @@ class Query(object):
 
 if __name__ == '__main__':
 	query_object = Query(
-		'20171201T000000', '20171231T000000', ['bitstamp'], ['btcusd'])
-	print query_object.query('live_orders').shape
+		'20180105T000000', '20180106T000000', ['bitstamp'], ['btcusd'])
+	print query_object.query('Order').shape
 
 
 
