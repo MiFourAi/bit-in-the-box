@@ -8,7 +8,7 @@ const md = require('./market_data.js');
 
 var BitfinexDefaultMsgNormalizer = function(productID, bookDepth) {
 	this.exchange = 'bitfinex';
-	this.productID = productID;
+	this.productID = productID.replace('t', '').toLowerCase();
 	// session arb. bitfinex publicates duplicated messages via multiple sessions
 	this.tradeIDs = {};
 	// price == 0 -> order delete
@@ -32,7 +32,6 @@ BitfinexDefaultMsgNormalizer.prototype.process = function(msg) {
 		return null;
 	}
 	const msg_type = msg[0];
-	console.log(msg);
     switch (msg_type) {
 		case 'book':
 			if (this.orderBook !== null) {
@@ -113,7 +112,7 @@ BitfinexDefaultMsgNormalizer.prototype._handleOrderUpdates = function(msg) {
     return order;  
 }
 
-var makeTrade = function(exchange, productID, msg, sequenceNo) {
+var makeTrades = function(exchange, productID, msg, sequenceNo) {
 	var options = {
 		tradeID: msg[0],
 		price: pricef(msg[3]),
