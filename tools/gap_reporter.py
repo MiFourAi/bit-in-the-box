@@ -22,9 +22,14 @@ def _walk_date_paths(md_msg, exchange, product, startdate, enddate):
       yield os.path.join(base_path, date)
 
 
-def _walk_csv_paths(datepath):
-  all_csv_files = filter(lambda x: x.endswith('.csv'),
-                         sorted(os.listdir(datepath)))
+def _walk_csv_paths(datepath, starttime, endtime):
+  def filter_fn(fname):
+    if not fname.endswith('.csv'):
+      return False
+    fname = fname.replace('.csv', '')
+    return fname >= starttime and fname <= endtime
+
+  all_csv_files = filter(filter_fn, sorted(os.listdir(datepath)))
   for fname in all_csv_files:
     yield os.path.join(datepath, fname)
 
@@ -54,11 +59,11 @@ def _read_csv_file(csv_filepath):
 def log(msg, indent=0):
   print '{}{}'.format(''.join([' ' for _ in xrange(indent)]), msg)
 
-md_msg = 'Trade'
+md_msg = 'OrderBook'
 exchange = 'gdax'
 product_id = 'btcusd'
-starttime = '20180104T000000'
-endtime = '20180106T230000'
+starttime = '20180105T083119'
+endtime = '20180106T000000'
 
 
 def main():
@@ -82,7 +87,7 @@ def main():
 
   for i in _walk_date_paths(md_msg, exchange, product_id, startdate, enddate):
     # print i
-    for j in _walk_csv_paths(i):
+    for j in _walk_csv_paths(i, starttime, endtime):
       # print '  {}'.format(j)
       csv_info = _read_csv_file(j)
       start_seq, end_seq, _, _, file_num_entries = csv_info
