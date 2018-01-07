@@ -17,7 +17,7 @@ config.bitfinex = {
 }
 
 config.gdax = {
-  products: ['BTC-USD'],
+  products: ['BTC-USD', 'LTC-USD', 'ETH-USD'],
   channels: ['full', 'level2'],
   bookDepth: 20,
   bookSamplingSeqInterval: 25,
