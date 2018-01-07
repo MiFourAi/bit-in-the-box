@@ -17,8 +17,7 @@ config.bitfinex = {
 }
 
 config.gdax = {
-  // TODO(mike): Normalize the product IDs across different exchanges
-  products: ['BTC-USD', 'LTC-USD', 'LTC-BTC'],
+  products: ['BTC-USD'],
   channels: ['full', 'level2'],
   bookDepth: 20,
   bookSamplingSeqInterval: 25,
