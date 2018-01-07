@@ -203,36 +203,6 @@ GdaxDefaultMsgNormalizer.prototype._handleOrderBookUpdate = function(msg) {
 
 ///////////////////////////////////////////////////////////////
 
-// Convert the RBTree based gdax OrderBook to list based.
-var GdaxFixDepthOrderBookConverter = function(bookDepth) {
-  this.bookDepth = bookDepth || 30;
-}
-
-GdaxFixDepthOrderBookConverter.prototype.convert = function(orderBook) {
-  var bidsTree = orderBook.bids, asksTree = orderBook.asks;
-  const depth = Math.min(this.bookDepth, bidsTree.size, asksTree.size);
-  if (depth !== this.bookDepth) {
-    console.log('Warning! depth=', depth, ' cannot match configured bookDepth=', this.bookDepth);
-  }
-
-  var bids = [], asks = [];
-  var itr = bidsTree.iterator();
-  for (var i = 0; i < depth; ++i) {
-    var item = itr.prev();
-    bids.push(item);
-  }
-
-  itr = asksTree.iterator();
-  for (var i = 0; i < depth; ++i) {
-    var item = itr.next();
-    asks.push(item);
-  }
-
-  return {bids: bids, asks: asks};
-}
-
-///////////////////////////////////////////////////////////////
-
 // Notes: 
 // - the usage of |channels| requires modifying gdax's package. gdax's Websocket doesn't 
 // support customized channels yet.
@@ -273,6 +243,5 @@ GdaxFeedHandler.prototype.start = function() {
 }
 
 module.exports.GdaxDefaultMsgNormalizer = GdaxDefaultMsgNormalizer;
-module.exports.GdaxFixDepthOrderBookConverter = GdaxFixDepthOrderBookConverter;
 module.exports.GdaxFeedHandler = GdaxFeedHandler;
 module.exports.normalizeProductID = normalizeProductID;

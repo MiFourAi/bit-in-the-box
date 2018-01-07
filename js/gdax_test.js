@@ -2,13 +2,13 @@ const readline = require('readline');
 const num = require('num');
 const pricef = require('./utils.js').pricef;
 const GdaxFeedHandler = require('./gdax_mess.js').GdaxFeedHandler;
-const GdaxFixDepthOrderBookConverter = require('./gdax_mess.js').GdaxFixDepthOrderBookConverter;
+const FixDepthOrderBookConverter = require('./utils.js').FixDepthOrderBookConverter;
 
 const bookDepth = 6;
 const numLines = bookDepth * 2 + 2 + 1;  // 2 * (price, qty) + 'Asks: ' + 'Bids: ' + 'Spread: '
 
 var gfh = new GdaxFeedHandler(['BTC-USD'], ['level2']);
-var obConverter = new GdaxFixDepthOrderBookConverter(bookDepth);
+var obConverter = new FixDepthOrderBookConverter(bookDepth);
 
 var clearConsoleLines = function(n) {
   for (var i = 0; i < n; ++i) {

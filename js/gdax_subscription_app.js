@@ -1,6 +1,6 @@
 const pricef = require('./utils.js').pricef;
 const GdaxFeedHandler = require('./gdax_mess.js').GdaxFeedHandler;
-const GdaxFixDepthOrderBookConverter = require('./gdax_mess.js').GdaxFixDepthOrderBookConverter;
+const FixDepthOrderBookConverter = require('./utils.js').FixDepthOrderBookConverter;
 const gdaxNormalizeProductID = require('./gdax_mess.js').normalizeProductID;
 const FeedCsvAppender = require('./feed_csv_appender').FeedCsvAppender;
 const config = require('./config.js').config;
@@ -25,7 +25,7 @@ var gdaxConfig = config.gdax;
 
 
 var gfh = new GdaxFeedHandler(gdaxConfig.products, gdaxConfig.channels);
-var obConverter = new GdaxFixDepthOrderBookConverter(gdaxConfig.bookDepth);
+var obConverter = new FixDepthOrderBookConverter(gdaxConfig.bookDepth);
 const mdTypes = ['Order', 'Trade', 'OrderBook'];
 
 var ProductMdCsvAppender = function(productID) {
