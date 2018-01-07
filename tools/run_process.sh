@@ -4,14 +4,14 @@ CMD="node ../js/gdax_subscription_app.js"
 PID="null"
 RUNNING="true"
 
-function siginit_handler() {
+function sigint_handler() {
   if [ "$PID" != "null" ]; then
     echo "kill -15 $PID"
-    kill -9 $PID
+    kill -15 $PID
   fi
   RUNNING="false"
 }
-trap 'siginit_handler' 2
+trap 'sigint_handler' 2
 
 i=0
 while [ $RUNNING == "true" ]; do
