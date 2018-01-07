@@ -37,7 +37,7 @@ class CsvQuery(object):
 
 
 	def _ls_file(self):
-		all_files = sorted(os.listdir(self._path))
+		all_files = filter(lambda x: x.endswith('.csv'), sorted(os.listdir(self._path)))
 		start_idx = self._searchsorted(all_files, self._starttime)
 		end_idx = self._searchsorted(all_files, self._endtime)
 		return all_files[start_idx:end_idx + 1]
