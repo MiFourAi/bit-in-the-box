@@ -10,7 +10,11 @@ config.bitstamp = {
 	channels: ['live_orders', 'order_book', 'live_trades'],
 }
 
-config.bitfinex = {}
+config.bitfinex = {
+	products: ['tBTCUSD'],
+	channels: ['orders', 'book', 'trades'],
+	bookDepth: 20,
+}
 
 config.gdax = {
   // TODO(mike): Normalize the product IDs across different exchanges

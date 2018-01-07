@@ -122,7 +122,7 @@ var makeTrades = function(exchange, productID, msg, sequenceNo) {
 		sellOrderID: null,
 		exchange: exchange,
 		productID: productID,
-		exchangeTimestamp: msg[1],
+		exchangeTimestamp: msg[1] * 1000,
 		timestamp: (new Date().getTime()),
 		sequenceNo: sequenceNo,
 	};
@@ -203,7 +203,7 @@ BitfinexDefaultMsgNormalizer.prototype._handleOrderBookUpdates = function(msg) {
 
 	tree.remove({price: price});
 	if (!num(cnt).eq(0)) {
-		tree.insert({price: price, qty: qty});
+		tree.insert({price: price, qty: Math.abs(qty)});
 	}
 
 	return makeOrderBook(
