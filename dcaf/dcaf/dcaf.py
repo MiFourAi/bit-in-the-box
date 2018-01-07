@@ -10,6 +10,7 @@ global __ROOT_PATH
 __ROOT_PATH = '/Users/wenshuaiye/Kaggle/bitcoin/data'
 
 def set_path(path):
+	global __ROOT_PATH
 	__ROOT_PATH = path
 
 def get_path():
