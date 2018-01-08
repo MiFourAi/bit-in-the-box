@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CMD="node ../js/gdax_subscription_app.js"
+CMD=$1
 PID="null"
 RUNNING="true"
 LOG='run_process_log'
