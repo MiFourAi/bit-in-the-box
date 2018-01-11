@@ -30,6 +30,44 @@ def walk_date_paths(base_path, startdate, enddate):
 				break
 			yield os.path.join(base_path, date)
 
+
+class Subscription(object):
+
+	def __init__(self, starttime, endtime):
+		self._starttime = starttime
+		self._endtime = endtime
+		self._subscribers = {}
+
+
+	def add_subscriber(self, table, exchanges, products):
+		self._subscribers[table] = Subscriber(
+				self._starttime,
+				self._endtime,
+				exchanges,
+				products,
+				table).process()
+
+
+	def process(self):
+		data_stream = []
+		for k, subscriber in self._subscribers.iteritems():
+			try:
+				entry = subscriber.next()
+				heappush(data_stream, entry)
+			except StopIteration:
+				pass
+		
+		while len(data_stream) > 0:
+			entry = heappop(data_stream)
+			table = entry[1].__class__.__name__
+			try:
+				new_entry = self._subscribers[table].next()
+				heappush(data_stream, new_entry)
+				yield entry
+			except StopIteration:
+				pass
+
+
 class Subscriber(object):
 
 	def __init__(self, starttime, endtime, exchanges, products, table):
@@ -87,9 +125,6 @@ class Subscriber(object):
 			if len(data_stream) > 0:
 				yield heappop(data_stream)
 
-
-class Subscription(object):
-	pass
 
 class CsvDriver(object):
 
@@ -210,6 +245,12 @@ def main():
 	print(query_object.next())
 	print(query_object.next())
 
+	subscription = Subscription('20180105T000000', '20180105T000100')
+	subscription.add_subscriber('Order', ['bitstamp'], ['btcusd'])
+	data_stream = subscription.process()
+	print(data_stream.next())
+	print(data_stream.next())
+	print(data_stream.next())
 
 if __name__ == '__main__':
 	main()
