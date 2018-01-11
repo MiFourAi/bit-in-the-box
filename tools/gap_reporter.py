@@ -4,22 +4,10 @@ import os
 from collections import namedtuple
 import datetime as dt
 
-sys.path.append('../dcaf/dcaf/')
-import utils
-import dcaf
+sys.path.append('../tcaf/tcaf/')
+import loader 
 
-dcaf.set_path('../../captured_md')
-
-
-def _walk_date_paths(md_msg, exchange, product, startdate, enddate):
-  base_path = os.path.join(dcaf.get_path(), md_msg, exchange, product)
-  if os.path.exists(base_path):
-    for date in sorted(os.listdir(base_path)):
-      if date < startdate:
-        continue
-      if date > enddate:
-        break
-      yield os.path.join(base_path, date)
+loader.set_path('../../captured_md')
 
 
 def _walk_csv_paths(datepath, starttime, endtime):
@@ -59,14 +47,21 @@ def _read_csv_file(csv_filepath):
 def log(msg, indent=0):
   print '{}{}'.format(''.join([' ' for _ in xrange(indent)]), msg)
 
-md_msg = 'OrderBook'
+md_msg = 'Trade'
 exchange = 'gdax'
 product_id = 'btcusd'
-starttime = '20180105T083119'
-endtime = '20180106T000000'
+starttime = '20180110T000000'
+endtime = '20180111T000000'
 
 
 def main():
+  log('Config')
+  log('MD={}'.format(md_msg), indent=2)
+  log('Exchange={}'.format(exchange), indent=2)
+  log('ProductID={}'.format(product_id), indent=2)
+  log('StartTime={}'.format(starttime), indent=2)
+  log('EndTime={}'.format(endtime), indent=2)
+
   startdate = starttime.split('T')[0]
   enddate = endtime.split('T')[0]
 
@@ -85,7 +80,8 @@ def main():
     log('num_entries: {}'.format(num_entries), indent=2)
     log('}')
 
-  for i in _walk_date_paths(md_msg, exchange, product_id, startdate, enddate):
+  base_path = os.path.join(loader.get_path(), md_msg, exchange, product_id)
+  for i in loader.walk_date_paths(base_path, startdate, enddate):
     # print i
     for j in _walk_csv_paths(i, starttime, endtime):
       # print '  {}'.format(j)

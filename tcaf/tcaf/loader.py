@@ -21,6 +21,14 @@ def set_path(path):
 def get_path():
 	return __ROOT_PATH
 
+def walk_date_paths(base_path, startdate, enddate):
+	if os.path.exists(base_path):
+		for date in sorted(os.listdir(base_path)):
+			if date < startdate:
+				continue
+			if date > enddate:
+				break
+			yield os.path.join(base_path, date)
 
 class Subscriber(object):
 
@@ -39,14 +47,8 @@ class Subscriber(object):
 		for exchange in self._exchanges:
 			for product in self._products:
 				path = os.path.join(get_path(), self._table, exchange, product)
-				if os.path.exists(path):
-					for date in sorted(os.listdir(path)):
-						if date < self._startdate:
-							continue
-						if date > self._enddate:
-							break
-						path_dict[(exchange, product)].append(os.path.join(
-							path, date))
+				for p in walk_date_paths(path, self._startdate, self._enddate):
+					path_dict[(exchange, product)].append(p)
 
 		return path_dict
 
@@ -54,33 +56,33 @@ class Subscriber(object):
 	def process(self):
 		path_dict = self._walk_paths()
 
-		subscribers = {}
+		drivers = {}
 		data_stream = []
 		for k, paths in path_dict.iteritems():
-			subscribers[k] = CsvDriver(
+			drivers[k] = CsvDriver(
 				self._starttime,
 				self._endtime,
 				paths.pop(0),
 				self._table).poll()
 
-		while len(subscribers) > 0:
-			deleted_subscribers = set()
-			for key, subscriber in subscribers.iteritems():
+		while len(drivers) > 0:
+			deleted_drivers = set()
+			for key, driver in drivers.iteritems():
 				try:
-					entry = subscriber.next()
+					entry = driver.next()
 				except StopIteration:
 					if len(path_dict[key]) > 0:
-						subscribers[key] = CsvDriver(
+						drivers[key] = CsvDriver(
 							self._starttime,
 							self._endtime,
 							path_dict[key].pop(0),
 							self._table).poll()
 					else:
-						deleted_subscribers.add(key)
+						deleted_drivers.add(key)
 						continue
 				heappush(data_stream, (getattr(entry, 'timestamp'), entry))
-			for key in deleted_subscribers:
-				subscribers.pop(key)
+			for key in deleted_drivers:
+				drivers.pop(key)
 
 			if len(data_stream) > 0:
 				yield heappop(data_stream)
@@ -168,17 +170,12 @@ class Query(object):
 	def _walk_paths(self, table):
 		cross_products = itertools.product(
 			[table], self._exchanges, self._products)
-		paths = [os.path.join(get_path(), '/'.join(list(cp))) for cp in
+		paths = [os.path.join(get_path(), *(list(cp))) for cp in
 			cross_products]
 
 		for path in paths:
-			if os.path.exists(path):
-				for date in sorted(os.listdir(path)):
-					if date < self._startdate:
-						continue
-					if date > self._enddate:
-						break
-					yield os.path.join(path, date)
+			for p in walk_date_paths(path, self._startdate, self._enddate):
+				yield p
 
 	def _create_query_driver(self, table):
 		return [CsvDriver(self._starttime, self._endtime, path, table) for
