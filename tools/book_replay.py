@@ -12,8 +12,8 @@ import utils
 loader.set_path('../../captured_md')
 print loader.get_path()
 
-start_datetime = '20180105T190500'
-end_datetime = '20180105T210000'
+start_datetime = '20180107T190500'
+end_datetime = '20180107T210000'
 product_id = 'btcusd'
 exchange = 'gdax'
 
@@ -43,13 +43,14 @@ def draw_orderbook(book_df, i):
     bid_pairs.sort(key=lambda p: -p[0])  # price, descending
     ask_pairs.sort(key=lambda p: -p[0])  # price, descending
     num_bids, num_asks = len(bid_pairs), len(ask_pairs)
-    y_pos = np.arange((num_bids + num_asks) * 0.2, 0, -0.2)
+    # y_pos = np.arange((num_bids + num_asks), 0, -1)
+    y_pos = range(-(num_bids + 1), -1) + range(1, (num_asks + 1))
+    y_pos = [i for i in reversed(y_pos)]
     qtys = [t[1] for t in ask_pairs] + [t[1] for t in bid_pairs]
-    prices = ['s_%.2f' % t[0] for t in ask_pairs] + ['b_%.2f' % t[0] for t in bid_pairs]
+    prices = ['%.2f' % t[0] for t in ask_pairs] + ['%.2f' % t[0] for t in bid_pairs]
     
-    fig, ax = plt.subplots()
-    fig.set_figwidth(8)
-    barlist = plt.barh(y_pos, qtys, align='center', alpha=0.5, height=0.1)
+    fig, ax = plt.subplots(figsize=(7, 7))
+    barlist = plt.barh(y_pos, qtys, align='center', alpha=0.5, height=1)
     
     for i in xrange(num_asks):
         barlist[i].set_color('red')
@@ -57,21 +58,18 @@ def draw_orderbook(book_df, i):
         barlist[i].set_color('green')
     plt.yticks(y_pos, prices)
     plt.xlabel('Qty')
-    plt.xlim(0, 10)
     
     def autolabel(rects):
         """
         Attach a text label above each bar displaying its height
         """
         for q, y, rect in zip(qtys, y_pos, rects):
-            w = rect.get_height()
-            ax.text(5.0, y, q,
-                    ha='center', va='bottom')
-    # autolabel(barlist)
+            ax.text(1.0, y, q, va='center')
+    autolabel(barlist)
     plt.show(block=False)
     return bid_pairs, ask_pairs
 
-i = 150
+i = 0
 draw_orderbook(book_df, i)
 
 while True:
