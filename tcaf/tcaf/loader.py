@@ -10,16 +10,19 @@ from heapq import *
 import utils
 
 
-
 global __ROOT_PATH
 __ROOT_PATH = '/Users/wenshuaiye/Kaggle/bitcoin/data'
+# __ROOT_PATH = '../../../captured_md'
+
 
 def set_path(path):
 	global __ROOT_PATH
 	__ROOT_PATH = path
 
+
 def get_path():
 	return __ROOT_PATH
+
 
 def walk_date_paths(base_path, startdate, enddate):
 	if os.path.exists(base_path):
@@ -38,7 +41,6 @@ class Subscription(object):
 		self._endtime = endtime
 		self._subscribers = {}
 
-
 	def add_subscriber(self, table, exchanges, products):
 		self._subscribers[table] = Subscriber(
 				self._starttime,
@@ -47,8 +49,10 @@ class Subscription(object):
 				products,
 				table).process()
 
-
 	def process(self):
+		"""
+		yield: a 2-tuple, (timestamp, market_data)
+		"""
 		data_stream = []
 		for k, subscriber in self._subscribers.iteritems():
 			try:
@@ -56,7 +60,7 @@ class Subscription(object):
 				heappush(data_stream, entry)
 			except StopIteration:
 				pass
-		
+
 		while len(data_stream) > 0:
 			entry = heappop(data_stream)
 			table = entry[1].__class__.__name__
@@ -79,7 +83,6 @@ class Subscriber(object):
 		self._enddate = endtime.split('T')[0]
 		self._table = table
 
-
 	def _walk_paths(self):
 		path_dict = defaultdict(list)
 		for exchange in self._exchanges:
@@ -90,18 +93,21 @@ class Subscriber(object):
 
 		return path_dict
 
-
 	def process(self):
+		"""
+		yield: a 2-tuple, (timestamp, market_data)
+		"""
 		path_dict = self._walk_paths()
 
 		drivers = {}
 		data_stream = []
 		for k, paths in path_dict.iteritems():
 			drivers[k] = CsvDriver(
-				self._starttime,
-				self._endtime,
-				paths.pop(0),
-				self._table).poll()
+					self._starttime,
+					self._endtime,
+					k[0], k[1],  # exchange, product
+					paths.pop(0),
+					self._table).poll()
 
 		while len(drivers) > 0:
 			deleted_drivers = set()
@@ -111,10 +117,11 @@ class Subscriber(object):
 				except StopIteration:
 					if len(path_dict[key]) > 0:
 						drivers[key] = CsvDriver(
-							self._starttime,
-							self._endtime,
-							path_dict[key].pop(0),
-							self._table).poll()
+								self._starttime,
+								self._endtime,
+								key[0], key[1],  # exchange, product
+								path_dict[key].pop(0),
+								self._table).poll()
 					else:
 						deleted_drivers.add(key)
 						continue
@@ -128,40 +135,37 @@ class Subscriber(object):
 
 class CsvDriver(object):
 
-	def __init__(self, starttime, endtime, path, table_name):
+	def __init__(self, starttime, endtime, exchange, product, path, table_name):
 		self._starttime = starttime
 		self._endtime = endtime
+		self._exchange = exchange
+		self._product = product
 		self._path = path
 		self._table_name = table_name
 
-
 	def _ls_file(self):
 		all_files = filter(
-			lambda x: x.endswith('.csv'), sorted(os.listdir(self._path)))
+				lambda x: x.endswith('.csv'), sorted(os.listdir(self._path)))
 		start_idx = self._searchsorted(all_files, self._starttime)
 		end_idx = self._searchsorted(all_files, self._endtime)
 		return all_files[start_idx:end_idx + 1]
 
-
 	def _searchsorted(self, candidates, target):
 		idx = np.searchsorted(candidates, target)
 		if (idx < len(candidates) and candidates[idx] == target or
-			idx == 0):
+						idx == 0):
 			return idx
 		else:
 			return idx - 1
 
-
 	def _locate_startpoint(self, timestamps):
 		return min(np.searchsorted(
 				timestamps, utils.to_epoch(self._starttime)),
-			len(timestamps) - 1)
-
+				len(timestamps) - 1)
 
 	def _locate_endpoint(self, timestamps):
 		return self._searchsorted(
-			timestamps, utils.to_epoch(self._endtime)) + 1
-
+				timestamps, utils.to_epoch(self._endtime)) + 1
 
 	def query(self):
 		data = pd.DataFrame()
@@ -176,9 +180,8 @@ class CsvDriver(object):
 				end = self._locate_endpoint(cur.timestamp.values)
 			if start > 0 or end < cur.shape[0]:
 				cur = cur.iloc[start:end]
-			data = pd.concat([data, cur], copy = False)
+			data = pd.concat([data, cur], copy=False)
 		return data
-
 
 	def poll(self):
 		all_files = self._ls_file()
@@ -186,9 +189,10 @@ class CsvDriver(object):
 			csvfile = os.path.join(self._path, all_files[i])
 			with open(csvfile, 'rb') as csvf:
 				reader = csv.reader(csvf, delimiter=',')
-				header = next(reader)
+				header = ['exchange', 'product'] + next(reader)
 				table = namedtuple(self._table_name, header)
 				for row in reader:
+					row = [self._exchange, self._product] + row
 					yield table._make(row)
 
 
@@ -202,51 +206,57 @@ class Query(object):
 		self._startdate = starttime.split('T')[0]
 		self._enddate = endtime.split('T')[0]
 
-	def _walk_paths(self, table):
-		cross_products = itertools.product(
-			[table], self._exchanges, self._products)
-		paths = [os.path.join(get_path(), *(list(cp))) for cp in
-			cross_products]
+	# def _walk_paths(self, table):
+	#   cross_products = itertools.product(
+	#       [table], self._exchanges, self._products)
+	#   paths = [os.path.join(get_path(), *(list(cp))) for cp in
+	#            cross_products]
 
-		for path in paths:
-			for p in walk_date_paths(path, self._startdate, self._enddate):
-				yield p
+	#   for path in paths:
+	#     for p in walk_date_paths(path, self._startdate, self._enddate):
+	#       yield p
 
 	def _create_query_driver(self, table):
-		return [CsvDriver(self._starttime, self._endtime, path, table) for
-			path in self._walk_paths(table)]
+		result = []
+		cross_products = itertools.product(self._exchanges, self._products)
+		for exch, prd in cross_products:
+			path = os.path.join(get_path(), table, exch, prd)
+			for p in walk_date_paths(path, self._startdate, self._enddate):
+				result.append(
+						CsvDriver(
+								self._starttime,
+								self._endtime,
+								exch,
+								prd,
+								p,
+								table))
+		return result
 
 	def query(self, table):
 		query_drivers = self._create_query_driver(table)
 		data = pd.DataFrame()
 		for driver in query_drivers:
 			query_result = driver.query()
-			data = pd.concat([data, query_result], copy = False)
+			data = pd.concat([data, query_result], copy=False)
 		return data if data.shape[0] == 0 else data.sort_values('timestamp')
 
 
 def main():
-	#query_object = Query(
-	#	'20180105T000000', '20180106T000000', ['bitstamp'], ['btcusd'])
-	#print(query_object.query('Order').shape)
-	#test_path = \
-	#	"/Users/wenshuaiye/Kaggle/bitcoin/data/Order/bitstamp/btcusd/20180107"
-	#csv_driver = CsvDriver(
-	#	'20180108T000000', '20180108T00300', test_path, 'Order')
-	#print(csv_driver.stream())
+	exchange = 'bitstamp'
+	# exchange = 'gdax'
 	query_object = Subscriber(
-		'20180105T000000',
-		'20180105T000100',
-		['bitstamp'],
-		['btcusd'],
-		'Order').process()
+			'20180110T000000',
+			'20180110T000100',
+			[exchange],
+			['btcusd'],
+			'Order').process()
 
 	print(query_object.next())
 	print(query_object.next())
 	print(query_object.next())
 
-	subscription = Subscription('20180105T000000', '20180105T000100')
-	subscription.add_subscriber('Order', ['bitstamp'], ['btcusd'])
+	subscription = Subscription('20180110T000000', '20180110T000100')
+	subscription.add_subscriber('OrderBook', [exchange], ['btcusd'])
 	data_stream = subscription.process()
 	print(data_stream.next())
 	print(data_stream.next())
