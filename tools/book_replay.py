@@ -9,13 +9,13 @@ sys.path.append('../tcaf/tcaf')
 import loader
 import utils
 
-loader.set_path('../../captured_md')
+loader.set_path('../../../data')
 print loader.get_path()
 
-start_datetime = '20180107T190500'
-end_datetime = '20180107T210000'
+start_datetime = '20180105T123000'
+end_datetime = '20180105T133000'
 product_id = 'btcusd'
-exchange = 'gdax'
+exchange = 'bitstamp'
 
 qo = loader.Query(start_datetime, end_datetime, [exchange], [product_id])
 book_df = qo.query('OrderBook')
@@ -24,7 +24,7 @@ BIDS_PRICE = 'bids_price'
 BIDS_QTY = 'bids_qty'
 ASKS_PRICE = 'asks_price'
 ASKS_QTY = 'asks_qty'
-
+MAX_DEPTH_DISPLAYED = 10
 
 def draw_orderbook(book_df, i):
     row = book_df.iloc[[i]].to_dict('list')
@@ -34,6 +34,8 @@ def draw_orderbook(book_df, i):
         price_keys = filter(lambda x: x.startswith(price_prefix), headers)
         for pk in price_keys:
             i = pk.split(price_prefix)[1]
+            if int(i[1:]) > MAX_DEPTH_DISPLAYED:
+                continue
             qk = qty_prefix + i
             price, qty = float(row[pk][0]), float(row[qk][0])
             result.append((price, qty))
