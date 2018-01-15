@@ -9,7 +9,7 @@ sys.path.append('../tcaf/tcaf')
 import loader
 import utils
 
-loader.set_path('../../../data')
+loader.set_path('../../captured_md')
 print loader.get_path()
 
 start_datetime = '20180105T123000'
