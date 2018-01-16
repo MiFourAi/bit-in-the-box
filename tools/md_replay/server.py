@@ -19,11 +19,15 @@ def main():
   end_datetime = '20180113T200000'
   product_id = 'btcusd'
   exchange = 'gdax'
+  start_idx = 0
 
+  idx = [0]  # so that we can reference it!
   subscription = loader.Subscription(start_datetime, end_datetime)
   subscription.add_subscriber('OrderBook', [exchange], [product_id])
   subscription.add_subscriber('Trade', [exchange], [product_id])
   data_stream = subscription.process()
+  for idx in xrange(start_idx):
+    next(data_stream)
 
   class Handler(BaseHTTPRequestHandler):
 
@@ -45,6 +49,8 @@ def main():
         md = next(data_stream)[1]
         d = {f: getattr(md, f) for f in md._fields}
         d['type'] = type(md).__name__
+        d['server_idx'] = idx[0]
+        idx[0] += 1
         d = json.dumps(d)
         self.wfile.write(
             '{}'.format(d))

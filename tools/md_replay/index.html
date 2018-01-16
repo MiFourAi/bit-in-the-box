@@ -4,14 +4,21 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script type="text/javascript" src="client.js"></script>
-    </script>
+    <style>
+    </style>
   </head>
   <body>
-    
-    <input type="button" value="Next Market Data" id="btn_md" onclick="onNextMd()">
-    <!--Div that will hold the pie chart-->
-    <div id="book_div"></div>
-    <div id="price_div"></div>
-    <div id="vol_div"></div>
+    <div>
+      <input type="button" value="Next Market Data" id="btn_md" onclick="onNextMd()">
+      <input type="button" value="Play" id="btn_play" onclick="onPlayOrStop()">
+      <div id="info_txt"/>
+    </div>
+    <div id="char_panel" class="charts">
+      <div id="book_div" class="book" style="float: left; width: 35%"></div>
+      <div class="trade_group" style="float: left; width: 65%">
+        <div id="price_div" class="trade"></div>
+        <div id="vol_div" class="trade"></div>
+      </div>
+    </div>
   </body>
 </html>

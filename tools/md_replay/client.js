@@ -6,6 +6,7 @@ const asksQtyPrefix = 'asks_qty_';
 const windowMs = 30 * 1000;
 const numWindows = 60;
 var tradeWindowInfoArr = [];
+var playing = false;
 
 const serverUrl = 'http://localhost:5011';
 
@@ -85,7 +86,7 @@ function drawOrderBook(bookChartData) {
   var data = google.visualization.arrayToDataTable(bookChartData);
   var options = {
         title: "OrderBook",
-        width: 500,
+        // width: 500,
         height: bookChartData.length * 15,
         bar: {groupWidth: "90%"},
         legend: { position: "none" },
@@ -178,8 +179,8 @@ function drawTradeWindowInfoArray() {
   var data = google.visualization.arrayToDataTable(priceArr, true); 
   var options = {
       title: "Price",
-      width: numWindows * 15,
-      height: 300,
+      // width: numWindows * 15,
+      // height: 300,
       bar: {groupWidth: "90%"},
         candlestick: {
         fallingColor: { strokeWidth: 0, fill: '#a52714' }, // red
@@ -192,8 +193,8 @@ function drawTradeWindowInfoArray() {
   var data = google.visualization.arrayToDataTable(volArr);
   var options = {
       title: "Trade Volume",
-      width: numWindows * 15,
-      height: 300,
+      // width: numWindows * 15,
+      // height: 300,
       bar: {
         groupWidth: "90%",
       },
@@ -204,11 +205,19 @@ function drawTradeWindowInfoArray() {
   tradeVolChart.draw(data, options);
 }
 
+function updateMdInfo(md) {
+  var dt = new Date(md.timestamp).toLocaleString();
+  document.getElementById('info_txt').innerHTML = 
+    'timestamp: ' + md.timestamp + ', datetime: ' + dt.toString()
+    + ', sequenceNo: ' + md.sequenceNo + ', serverIdx: ' + md.server_idx;
+}
+
 function mdHandler(mdText) {
   md = JSON.parse(mdText);
   // console.log(md);
   const md_type = md.type;
   md.timestamp = parseInt(md.timestamp);
+  updateMdInfo(md);
   if (md_type === 'Trade') {
     md.price = parseFloat(md.price);
     md.qty = parseFloat(md.qty);
@@ -230,4 +239,29 @@ function mdHandler(mdText) {
 
 function onNextMd() {
   httpGetAsync(serverUrl, mdHandler);
+}
+
+// sleep time expects milliseconds
+function sleep (time) {
+  return new Promise((resolve) => setTimeout(resolve, time));
+}
+
+function onPlayOrStop() {
+  playing = !playing;
+  if (playing) {
+    document.getElementById('btn_play').value = 'Stop';
+  } else {
+    document.getElementById('btn_play').value = 'Play';
+  }
+  if (playing) {
+    var cb = function(mdText) {
+      mdHandler(mdText);
+      if (playing) {
+        sleep(1).then(() => { 
+          httpGetAsync(serverUrl, cb); 
+        });
+      }
+    };
+    httpGetAsync(serverUrl, cb);
+  }
 }
