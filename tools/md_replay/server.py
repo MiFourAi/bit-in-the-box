@@ -21,7 +21,8 @@ def main():
   exchange = 'gdax'
 
   subscription = loader.Subscription(start_datetime, end_datetime)
-  subscription.add_subscriber('OrderBook', [exchange], ['btcusd'])
+  subscription.add_subscriber('OrderBook', [exchange], [product_id])
+  subscription.add_subscriber('Trade', [exchange], [product_id])
   data_stream = subscription.process()
 
   class Handler(BaseHTTPRequestHandler):
@@ -43,6 +44,7 @@ def main():
       try:
         md = next(data_stream)[1]
         d = {f: getattr(md, f) for f in md._fields}
+        d['type'] = type(md).__name__
         d = json.dumps(d)
         self.wfile.write(
             '{}'.format(d))
