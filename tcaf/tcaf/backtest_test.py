@@ -5,6 +5,7 @@ from backtest import *
 # For simplicity, each side has two price levels
 OrderBookData = namedtuple('OrderBook',
                            ['timestamp',
+                            'sequenceNo',
                             'asks_price_2',
                             'asks_qty_2',
                             'asks_price_1',
@@ -13,9 +14,14 @@ OrderBookData = namedtuple('OrderBook',
                             'bids_qty_1',
                             'bids_price_2',
                             'bids_qty_2', ])
+TradeData = namedtuple('Trade',
+                           ['timestamp',
+                            'sequenceNo',
+                            'price',
+                            'qty',
+                            'makerSide',])
 
-
-class TestBacktest(unittest.TestCase):
+class TestBacktestBasic(unittest.TestCase):
 
   def setUp(self):
     warnings.simplefilter('error')
@@ -24,13 +30,22 @@ class TestBacktest(unittest.TestCase):
     self._ep = (self._exchange, self._product)
     self._test_book_events = [
         # timestamp, OrderBookData
-        (1, OrderBookData(1, 102.0, 2.0, 101.0, 1.0, 100.0, 1.0, 99.0, 2.0)),
-        (10, OrderBookData(10, 103.0, 1.0, 102.0, 1.0, 101.0, 1.0, 100.0, 1.0)),
-        (20, OrderBookData(20, 101.0, 1.0, 100.0, 2.0, 99.0, 2.0, 98.0, 1.0)),
+        (1, OrderBookData(1, 1, 102.0, 2.0, 101.0, 1.0, 100.0, 1.0, 99.0, 2.0)),
+        (10, OrderBookData(10, 2, 103.0, 1.0, 102.0, 1.0, 101.0, 1.0, 100.0, 1.0)),
+        (20, OrderBookData(20, 3, 101.0, 1.0, 100.0, 2.0, 99.0, 2.0, 98.0, 1.0)),
     ]
+
+  def test_time_is_empty(self):
+    bt = BackTest(self._exchange, self._product, 1000.0)
+    with self.assertRaises(UserWarning):
+      order = OrderInfo('b', 'market', amount=1)
+      bt.place_order(order)
 
   def test_book_is_empty(self):
     bt = BackTest(self._exchange, self._product, 1000.0)
+    FakeMd = namedtuple('FakeMd', ['timestamp'])
+    md = FakeMd(timestamp=1)
+    bt.update((1, md))
     with self.assertRaises(UserWarning):
       order = OrderInfo('b', 'market', amount=1)
       bt.place_order(order)
@@ -47,13 +62,6 @@ class TestBacktest(unittest.TestCase):
     bt.update(self._test_book_events[0])
     with self.assertRaises(UserWarning):
       order = OrderInfo('s', 'market', amount=1.1)
-      bt.place_order(order)
-
-  def test_limit_order_disabled(self):
-    bt = BackTest(self._exchange, self._product, 0, position=1.0)
-    bt.update(self._test_book_events[0])
-    with self.assertRaises(NotImplementedError):
-      order = OrderInfo('b', 'limit', price=100, qty=1.0)
       bt.place_order(order)
 
   def test_buy_1_price_level(self):
@@ -223,6 +231,134 @@ class TestBacktest(unittest.TestCase):
     self.assertAlmostEqual(
         bt.capital[self._ep], capital - (101.0 + 102.0 * 0.5) + 1.0 * 101.0 - 100.0)
     self.assertAlmostEqual(bt.position[self._ep], position + 1.5 - 1.0 + 1.0)
+
+
+class TestBacktestLimitOrders(unittest.TestCase):
+
+  def setUp(self):
+    warnings.simplefilter('error')
+    self._exchange = 'test_exchange'
+    self._product = 'test_coin'
+    self._ep = (self._exchange, self._product)
+    self._test_book_events = [
+        # timestamp, OrderBookData
+        (1, OrderBookData(1, 1, 102.0, 2.0, 101.0, 1.0, 100.0, 1.0, 99.0, 2.0)),
+        (10, OrderBookData(10, 5, 103.0, 1.0, 102.0, 1.0, 101.0, 1.0, 100.0, 1.0)),
+        (20, OrderBookData(20, 10, 101.0, 1.0, 100.0, 2.0, 99.0, 2.0, 98.0, 1.0)),
+    ]
+
+  def test_limit_cross_book(self):
+    capital, position = 1000, 5
+    bt = BackTest(self._exchange, self._product, capital, position=position)
+    bt.update(self._test_book_events[0])
+    with self.assertRaises(UserWarning):
+      order = OrderInfo('b', 'limit', price=101.0, qty=0.5)
+      bt.place_order(order)
+
+    with self.assertRaises(UserWarning):
+      order = OrderInfo('s', 'limit', price=100.0, qty=0.5)
+      bt.place_order(order)
+
+  def test_1_limit_order(self):
+    capital = 1000
+    bt = BackTest(self._exchange, self._product, capital)
+    bt.update(self._test_book_events[0])
+    
+    order = OrderInfo('b', 'limit', price=100.0, qty=0.5)
+    bt.place_order(order)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
+    trade = (2, TradeData(2, 2, 100.0, 1.0, 'b'))
+    bt.update(trade)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
+    trade = (3, TradeData(3, 3, 100.0, 0.6, 'b'))
+    bt.update(trade)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0.5)
+
+  def test_limit_filled_when_at_queue_head(self):
+    capital = 1000
+    bt = BackTest(self._exchange, self._product, capital)
+    bt.update(self._test_book_events[0])
+    
+    order = OrderInfo('b', 'limit', price=100.0, qty=0.5)
+    bt.place_order(order)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
+    trade = (2, TradeData(2, 2, 100.0, 1.0, 'b'))
+    bt.update(trade)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
+    trade = (3, TradeData(3, 3, 100.0, 0.6, 'b'))
+    bt.update(trade)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0.5)
+
+  def test_limit_filled_if_trade_price_lower(self):
+    capital = 1000
+    bt = BackTest(self._exchange, self._product, capital)
+    bt.update(self._test_book_events[0])
+    
+    order = OrderInfo('b', 'limit', price=100.0, qty=0.5)
+    bt.place_order(order)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
+    trade = (2, TradeData(2, 2, 99.0, 1.0, 'b'))
+    bt.update(trade)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0.5)
+
+  def test_limit_filled_if_book_price_crossed(self):
+    capital = 1000
+    bt = BackTest(self._exchange, self._product, capital)
+    bt.update(self._test_book_events[0])
+    
+    order = OrderInfo('b', 'limit', price=100.5, qty=0.5)
+    bt.place_order(order)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100.5 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
+    # if the book's ask_price_1 is lower than the limit order's price,
+    # and the limit order is not canceled, then we assume that the order
+    # is traded.
+    bt.update(self._test_book_events[2])
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100.5 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0.5)
+
+  def test_cancel_order(self):
+    capital = 1000
+    bt = BackTest(self._exchange, self._product, capital)
+    bt.update(self._test_book_events[0])
+    
+    order = OrderInfo('b', 'limit', price=100.5, qty=0.5)
+    oid = bt.place_order(order)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100.5 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
+    self.assertTrue(bt.cancel(oid))
+    self.assertAlmostEqual(bt.capital[self._ep], capital)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
+  def test_gtc_order(self):
+    capital = 1000
+    bt = BackTest(self._exchange, self._product, capital)
+    bt.update(self._test_book_events[0])
+    
+    order = OrderInfo('b', 'limit', price=100.5, qty=0.5, lifetime=5)
+    oid = bt.place_order(order)
+    self.assertAlmostEqual(bt.capital[self._ep], capital - 100.5 * 0.5)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
+    bt.update(self._test_book_events[1])
+    self.assertAlmostEqual(bt.capital[self._ep], capital)
+    self.assertAlmostEqual(bt.position[self._ep], 0)
+
 
 if __name__ == '__main__':
   unittest.main()
