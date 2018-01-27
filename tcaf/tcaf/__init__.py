@@ -1,1 +1,1 @@
-__all__ = ["loader", "utils"]
+__all__ = ["loader", "utils", "backtest"]
