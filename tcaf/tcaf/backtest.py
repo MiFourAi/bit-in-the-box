@@ -103,6 +103,12 @@ class IBackTest(object):
     """
     raise NotImplementedError()
 
+  def is_filled(self, oid):
+    """
+    oid: an OrderID instance.
+    """
+    raise NotImplementedError()
+
   def update(self, md):
     raise NotImplementedError()
 
@@ -125,6 +131,7 @@ class BackTest(IBackTest):
     self._capital = capital
     self._pending_orders = OrderedDict()
     self._open_orders = OrderedDict()
+    self._filled_order_ids = set()
     self._next_order_id = 1
 
     self._cur_book = None
@@ -215,7 +222,10 @@ class BackTest(IBackTest):
     return True
 
   def _add_to_open_queue(self, oid, order):
-
+    """
+    oid: an int
+    order: an OrderInfo instance
+    """
     # Remove this check once we pass the tests.
     assert self._can_exchange_accept_order(order)
     assert oid not in self._open_orders, '{} already in open orders.'.format(
@@ -258,24 +268,25 @@ class BackTest(IBackTest):
     else:
       order.book_pos = res[2]
 
-  def _try_complete_limit_order(self, order, **kwargs):
+  def _try_complete_limit_order(self, oid, order, **kwargs):
     # Sample Trade msg:
     # Trade(exchange='gdax', product='btcusd', exchangeTimestamp='1515571422111', timestamp='1515571422189', sequenceNo='1227482', tradeID='32824839', price='14049.00', qty='0.35679758', makerSide='b', buyOrderID='48469c84-ea90-4ff8-8e73-3faf1429dd9a', sellOrderID='12216ff0-4eb0-45d6-979b-6812ea1e20d1')
     order_filled = False
     order_canceled = False
     try:
       trade = kwargs['trade']
-      order_price_str = self._fmt_price(order.price)
-      trade_price = float(trade.price)
-      trade_price_str = self._fmt_price(trade_price)
+      if order.side == trade.makerSide:
+        order_price_str = self._fmt_price(order.price)
+        trade_price = float(trade.price)
+        trade_price_str = self._fmt_price(trade_price)
 
-      if order_price_str == trade_price_str:
-        order.book_pos -= float(trade.qty)
-        if order.book_pos + order.qty < _EPSILON:
+        if order_price_str == trade_price_str:
+          order.book_pos -= float(trade.qty)
+          if order.book_pos + order.qty < _EPSILON:
+            order_filled = True
+        elif (order.side == 'b' and trade_price < order.price) or (
+                order.side == 's' and trade_price > order.price):
           order_filled = True
-      elif (order.side == 'b' and trade_price < order.price) or (
-              order.side == 's' and trade_price > order.price):
-        order_filled = True
     except KeyError:
       pass
     # this check makes sure that the order book has changed.
@@ -305,6 +316,8 @@ class BackTest(IBackTest):
           order_canceled = True
       except KeyError:
         order_canceled = False
+    if order_filled:
+      self._filled_order_ids.add(oid.order_id)
     return order_filled or order_canceled
 
   def _exchange_recv_order(self, oid, order):
@@ -322,14 +335,14 @@ class BackTest(IBackTest):
       order.timestamp = self._cur_time
       if order.type == _MKT:
         # shortcut the open order queue, fill it directly.
-        self._fill_market_order(order)
+        self._fill_market_order(oid, order)
       else:
         self._attach_book_snap_info(order)
         self._add_to_open_queue(oid, order)
       return True
     return False
 
-  def _fill_market_order(self, order):
+  def _fill_market_order(self, oid, order):
     """
     This function walks through |current_book| to fill the market |order|.
     """
@@ -386,6 +399,7 @@ class BackTest(IBackTest):
         remaining_qty -= filled_qty
         self._capital += (filled_qty * price)
         i += 1
+    self._filled_order_ids.add(oid.order_id)
 
   def _drain_pending_queue(self):
     removed_oids = []
@@ -408,9 +422,9 @@ class BackTest(IBackTest):
     for oid, order in self._open_orders.iteritems():
       completed = True
       if order.type == _MKT:
-        self._fill_market_order(order)
+        self._fill_market_order(oid, order)
       elif order.type == _LMT:
-        completed = self._try_complete_limit_order(order, **kwargs)
+        completed = self._try_complete_limit_order(oid, order, **kwargs)
 
       if completed:
         completed_oids.append(oid)
@@ -428,7 +442,7 @@ class BackTest(IBackTest):
       self._exchange_recv_order(oid, order)
     else:
       self._pending_orders[oid] = (self._cur_time, order)
-    return OrderID(oid)
+    return OrderID(oid, exchange=self.exchange, product=self.product)
 
   def cancel(self, oid):
     oid = oid.order_id
@@ -443,7 +457,10 @@ class BackTest(IBackTest):
     return False
 
   def is_open(self, oid):
-    return oid in self._open_orders
+    return oid.order_id in self._open_orders
+
+  def is_filled(self, oid):
+    return oid.order_id in self._filled_order_ids
 
   def update(self, md):
     """
@@ -484,6 +501,13 @@ class CompositeBackTest(IBackTest):
     """
     e, p = oid.get('exchange'), oid.get('product')
     return self._back_tests[(e, p)].is_open(oid)
+
+  def is_filled(self, oid):
+    """
+    oid: an OrderID instance.
+    """
+    e, p = oid.get('exchange'), oid.get('product')
+    return self._back_tests[(e, p)].is_filled(oid)
 
   def update(self, md):
     """
