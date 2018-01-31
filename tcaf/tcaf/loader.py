@@ -60,7 +60,6 @@ class Subscription(object):
 				heappush(data_stream, entry)
 			except StopIteration:
 				pass
-
 		while len(data_stream) > 0:
 			entry = heappop(data_stream)
 			table = entry[1].__class__.__name__
@@ -142,6 +141,8 @@ class CsvDriver(object):
 		self._product = product
 		self._path = path
 		self._table_name = table_name
+		self._start_epoch = utils.to_epoch(starttime)
+		self._end_epoch = utils.to_epoch(endtime)
 
 	def _ls_file(self):
 		all_files = filter(
@@ -159,13 +160,12 @@ class CsvDriver(object):
 			return idx - 1
 
 	def _locate_startpoint(self, timestamps):
-		return min(np.searchsorted(
-				timestamps, utils.to_epoch(self._starttime)),
-				len(timestamps) - 1)
+		return min(np.searchsorted(timestamps, self._start_epoch),
+			len(timestamps) - 1)
 
 	def _locate_endpoint(self, timestamps):
 		return self._searchsorted(
-				timestamps, utils.to_epoch(self._endtime)) + 1
+				timestamps, self._end_epoch) + 1
 
 	def query(self):
 		data = pd.DataFrame()
@@ -193,7 +193,14 @@ class CsvDriver(object):
 				table = namedtuple(self._table_name, header)
 				for row in reader:
 					row = [self._exchange, self._product] + row
-					yield table._make(row)
+					to_yield = table._make(row)
+					ts = int(getattr(to_yield, 'timestamp')) - 8 * 60 * 60 * 1000
+					if ts < self._start_epoch:
+						continue
+					elif ts > self._end_epoch:
+						return
+					else:
+						yield to_yield
 
 
 class Query(object):
@@ -251,12 +258,13 @@ def main():
 			['btcusd'],
 			'Order').process()
 
-	print(query_object.next())
-	print(query_object.next())
-	print(query_object.next())
+	#print(query_object.next())
+	#print(query_object.next())
+	#print(query_object.next())
 
-	subscription = Subscription('20180110T000000', '20180110T000100')
-	subscription.add_subscriber('OrderBook', [exchange], ['btcusd'])
+	subscription = Subscription('20180110T100000', '20180110T100100')
+	#subscription.add_subscriber('Trade', [exchange], ['btcusd'])
+	subscription.add_subscriber('Order', [exchange], ['btcusd'])
 	data_stream = subscription.process()
 	print(data_stream.next())
 	print(data_stream.next())
