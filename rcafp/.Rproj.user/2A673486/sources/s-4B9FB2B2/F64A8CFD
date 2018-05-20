@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1526788538944.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "F64A8CFD",
+    "lastKnownWriteTime" : 1526797168,
+    "last_content_update" : 1526797168466,
+    "path" : "~/Google Drive/Projects/crypto/bit-in-the-box/rcaf/Test_Caller.r",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "38,0",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
