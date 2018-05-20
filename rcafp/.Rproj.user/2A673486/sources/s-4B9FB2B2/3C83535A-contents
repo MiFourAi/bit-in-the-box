@@ -31,12 +31,14 @@ dt_Trade <- runQuery(
 
 options(digits = 15)
 library(pbapply)
+
 queue <- initialSubscriber(starttime, endtime, exchange_list, product_list, table_list)
 
-dt_Stream <- pblapply(1:100, function(i) {
+dt_Stream <- pblapply(1:10000, function(i) {
   stream <- runSubscriberQ(queue)
-  spec <- attr(stream, "spec")
-  cat(stream$timestamp, spec[3], "\n")
+  # spec <- attr(stream, "spec")
+  # cat(stream$timestamp, spec[3], "\n")
+  if (is.null(stream)) break
   return(stream)
 })
 

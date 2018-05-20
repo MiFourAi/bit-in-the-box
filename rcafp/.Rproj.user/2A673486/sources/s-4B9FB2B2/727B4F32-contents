@@ -1,4 +1,7 @@
-### data loader ###
+#' data loader
+#'
+#' This package allows you to load Cryptocurrency data
+#' @export
 root_path <- "~/Downloads/Data"
 
 ### list all files in one folder
