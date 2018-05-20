@@ -5,15 +5,15 @@
     "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
-    "hash" : "0",
+    "hash" : "490557354",
     "id" : "727B4F32",
-    "lastKnownWriteTime" : 1526796820,
-    "last_content_update" : 1526796820213,
+    "lastKnownWriteTime" : 1526805454,
+    "last_content_update" : 1526805454663,
     "path" : "~/Google Drive/Projects/crypto/bit-in-the-box/rcafp/R/Rcaf.r",
     "project_path" : "R/Rcaf.r",
     "properties" : {
-        "cursorPosition" : "105,1",
-        "scrollLine" : "98"
+        "cursorPosition" : "102,2",
+        "scrollLine" : "100"
     },
     "relative_order" : 1,
     "source_on_save" : true,

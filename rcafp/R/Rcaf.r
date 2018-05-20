@@ -9,7 +9,12 @@ fileLister <- function(starttime, endtime, exchange, product, path, table) {
     return(NULL)
   }
   timestamps <- gsub(".csv$", "", all_files)
-  timestamps <- timestamps[timestamps <= endtime & timestamps >= starttime]
+  first_ind <- min(which(timestamps >= starttime))
+  last_ind <- max(which(timestamps <= endtime))
+  # to read one more file from both ends for completeness
+  first_ind <- ifelse(first_ind > 1, first_ind - 1, first_ind)
+  last_ind <- ifelse(last_ind < length(timestamps), last_ind + 1, last_ind)
+  timestamps <- timestamps[first_ind:last_ind]
   all_files <- paste0(timestamps, ".csv")
   return(all_files)
 }
@@ -22,7 +27,8 @@ csvDriver <- function(starttime, endtime, exchange, product, path, table) {
   if (!is.null(all_files)) {
     cat("Loading", path, "\n")
     data_list <- pblapply(all_files, function(f) fread(file.path(path, f)))
-    return(do.call(rbind, data_list))
+    dt <- do.call(rbind, data_list)
+    return(dt[timestamp >= epoch_to_timestamp(starttime) & timestamp <= epoch_to_timestamp(endtime)])
   } else {
     return(invisible(NULL))
   }
@@ -52,6 +58,7 @@ runQuery <- function(starttime, endtime, exchange_list, product_list, table) {
 
 ### initiate Subscriber runs for a list of specs
 initialSubscriber <- function(starttime, endtime, exchange_list, product_list, table_list) {
+  require(liqueueR, quietly = T, warn.conflicts = F)
   require(iterators, quietly = T, warn.conflicts = F)
   require(itertools, quietly = T, warn.conflicts = F)
   startdate <- as.Date(substr(starttime, 1, 8), "%Y%m%d")
@@ -69,34 +76,46 @@ initialSubscriber <- function(starttime, endtime, exchange_list, product_list, t
     return(iter_obj)
   })
   iter_obj_initial[sapply(iter_obj_initial, is.null)] <- NULL
-  # first run
-  iter_obj_list <<- lapply(seq_along(iter_obj_initial), function(i) {
-    csvStreamer(iter_obj_initial[[i]])
-  })
-  return(invisible(NULL))
+  iter_obj_queue <- PriorityQueue$new()
+  cat("Initializing Queue...\n")
+  for (i in seq_along(iter_obj_initial)) {
+    # load first line
+    iter_obj <- iter_obj_initial[[i]]
+    iter_obj <- csvStreamer(iter_obj)
+    # make sure to load data within range
+    # if too late then exit
+    if (iter_obj$data$timestamp > epoch_to_timestamp(endtime)) break
+    # if too early then iterate to first timestamp within range
+    while (iter_obj$data$timestamp < epoch_to_timestamp(starttime)) {
+      iter_obj <- csvStreamer(iter_obj)
+      if (is.null(iter_obj$data)) break
+    }
+    # if valid then push
+    if (!is.null(iter_obj$data)) iter_obj_queue$push(iter_obj, -iter_obj$data$timestamp)
+    # if reach to end of file then skip
+  }
+  return(iter_obj_queue)
 }
 
 ### run Subscriber to get stream of data by time
-runSubscriber <- function() {
-  if (exists("iter_obj_list", envir = .GlobalEnv)) {
-    first_ind <- which.min(sapply(iter_obj_list, function(iter_obj) {
-      ifelse(is.null(iter_obj$data$timestamp), Inf, iter_obj$data$timestamp)
-    }))
-    if (is.infinite(first_ind)) break
-    dt <- iter_obj_list[[first_ind]]$data
-    spec <- attr(iter_obj_list[[first_ind]], "spec")
-    tmp_iter_obj_list <- iter_obj_list
-    tmp_iter_obj_list[[first_ind]] <- csvStreamer(iter_obj_list[[first_ind]])
-    iter_obj_list <<- tmp_iter_obj_list
-    attr(dt, "spec") <- spec
-    return(dt)
-  } else {
-    cat("Need to Initiate Subscriber.\n")
+
+runSubscriberQ <- function(iter_obj_queue) {
+  iter_obj <- iter_obj_queue$poll()
+  if (is.null(iter_obj)) {
+    cat("End of File\n")
     return(invisible(NULL))
   }
+  dt <- iter_obj$data
+  spec <- attr(iter_obj, "spec")
+  attr(dt, "spec") <- spec
+  iter_obj <- csvStreamer(iter_obj)
+  if (!is.null(iter_obj$data)) {
+    iter_obj_queue$push(iter_obj, -iter_obj$data$timestamp)
+  }
+  return(dt)
 }
 
-### helper functions for subscriber
+### helper functions for subscriber/streamer
 csvStreamerGenerator <- function(starttime, endtime, exchange, product, path, table) {
   all_files <- fileLister(starttime, endtime, exchange, product, path, table)
   if (is.null(all_files)) return(NULL)
@@ -112,9 +131,8 @@ csvStreamer <- function(iter_obj) {
   if (is.null(reader_it) || !hasNext(reader_it)) {
     if (hasNext(file_it)) {
       file <- nextElem(file_it)
-      reader_it <- ihasNext(iread.table(file.path(spec[4], file), header = T, row.names = NULL, sep = ","))
-      # read header line
-      header <- nextElem(reader_it)
+      full_path <- file.path(spec[4], file)
+      reader_it <- ihasNext(iread.table(full_path, header = T, row.names = NULL, sep = ","))
     } else {
       iter_obj <- list(data = NULL, file_it = file_it, reader_it = reader_it)
       attr(iter_obj, "attr") <- spec
@@ -126,4 +144,13 @@ csvStreamer <- function(iter_obj) {
   iter_obj <- list(data = data, file_it = file_it, reader_it = reader_it)
   attr(iter_obj, "spec") <- spec
   return(iter_obj)
+}
+
+# utility function
+epoch_to_timestamp <- function(epoch) {
+  return(as.numeric(strptime(epoch, "%Y%m%dT%H%M%S"))*1000)
+}
+
+timestamp_to_epoch <- function(timestamp) {
+  return(strftime(as.POSIXct(timestamp/1000, origin = "1970-01-01 00:00:00"), "%Y%m%dT%H%M%S"))
 }
