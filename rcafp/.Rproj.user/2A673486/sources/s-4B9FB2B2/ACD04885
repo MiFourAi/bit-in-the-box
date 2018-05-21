@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1526840283194.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3322357648",
+    "id" : "ACD04885",
+    "lastKnownWriteTime" : 1526925827,
+    "last_content_update" : 1526925827026,
+    "path" : "~/Google Drive/Projects/crypto/bit-in-the-box/rcafp/R/tester.r",
+    "project_path" : "R/tester.r",
+    "properties" : {
+        "cursorPosition" : "236,65",
+        "scrollLine" : "227",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 4,
+    "source_on_save" : true,
+    "source_window" : "",
+    "type" : "r_source"
+}

@@ -5,6 +5,7 @@
 root_path <- "~/Downloads/Data"
 
 ### list all files in one folder
+#' @export
 fileLister <- function(starttime, endtime, exchange, product, path, table) {
   all_files <- list.files(path, ".csv$")
   if (length(all_files) == 0) {
@@ -23,6 +24,7 @@ fileLister <- function(starttime, endtime, exchange, product, path, table) {
 }
 
 ### load and stack all files in one folder
+#' @export
 csvDriver <- function(starttime, endtime, exchange, product, path, table) {
   require(data.table, quietly = T, warn.conflicts = F)
   require(pbapply, quietly = T, warn.conflicts = F)
@@ -38,6 +40,7 @@ csvDriver <- function(starttime, endtime, exchange, product, path, table) {
 }
 
 ### load and stack all files for one type of table
+#' @export
 runQuery <- function(starttime, endtime, exchange_list, product_list, table) {
   # query data
   startdate <- as.Date(substr(starttime, 1, 8), "%Y%m%d")
@@ -60,6 +63,7 @@ runQuery <- function(starttime, endtime, exchange_list, product_list, table) {
 }
 
 ### initiate Subscriber runs for a list of specs
+#' @export
 initialSubscriber <- function(starttime, endtime, exchange_list, product_list, table_list) {
   require(liqueueR, quietly = T, warn.conflicts = F)
   require(iterators, quietly = T, warn.conflicts = F)
@@ -101,24 +105,37 @@ initialSubscriber <- function(starttime, endtime, exchange_list, product_list, t
 }
 
 ### run Subscriber to get stream of data by time
-
-runSubscriberQ <- function(iter_obj_queue) {
+#' @export
+runSubscriber <- function(iter_obj_queue) {
+  require(data.table)
   iter_obj <- iter_obj_queue$poll()
   if (is.null(iter_obj)) {
     cat("End of File\n")
     return(invisible(NULL))
   }
-  dt <- iter_obj$data
+  dt <- data.table(iter_obj$data)
+  current_time <- dt$timestamp
   spec <- attr(iter_obj, "spec")
   attr(dt, "spec") <- spec
   iter_obj <- csvStreamer(iter_obj)
   if (!is.null(iter_obj$data)) {
+    while(iter_obj$data$timestamp == current_time) {
+      dt <- rbind(dt, data.table(iter_obj$data))
+      attr(dt, "spec") <- spec
+      iter_obj <- csvStreamer(iter_obj)
+      if (is.null(iter_obj$data)) {
+        return(dt)
+      }
+    }
+    # until next timestamp
+    # push to queue
     iter_obj_queue$push(iter_obj, -iter_obj$data$timestamp)
   }
   return(dt)
 }
 
 ### helper functions for subscriber/streamer
+#' @export
 csvStreamerGenerator <- function(starttime, endtime, exchange, product, path, table) {
   all_files <- fileLister(starttime, endtime, exchange, product, path, table)
   if (is.null(all_files)) return(NULL)
@@ -138,7 +155,7 @@ csvStreamer <- function(iter_obj) {
       reader_it <- ihasNext(iread.table(full_path, header = T, row.names = NULL, sep = ","))
     } else {
       iter_obj <- list(data = NULL, file_it = file_it, reader_it = reader_it)
-      attr(iter_obj, "attr") <- spec
+      attr(iter_obj, "spec") <- spec
       return(iter_obj)
     }
   }

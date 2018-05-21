@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1526839380363.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "939B9D5F",
+    "lastKnownWriteTime" : 1526925830,
+    "last_content_update" : 1526925830001,
+    "path" : "~/Google Drive/Projects/crypto/bit-in-the-box/rcafp/test_caller.r",
+    "project_path" : "test_caller.r",
+    "properties" : {
+        "cursorPosition" : "75,34",
+        "scrollLine" : "72"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
