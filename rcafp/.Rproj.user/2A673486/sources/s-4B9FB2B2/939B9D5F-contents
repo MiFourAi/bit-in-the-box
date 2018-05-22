@@ -44,12 +44,6 @@ dt_Stream <- pblapply(1:1000, function(i) {
   return(stream)
 })
 
-
-
-
-
-
-
 showConnections(all = T)
 closeAllConnections()
 
@@ -66,23 +60,13 @@ foo <- function(i) {
 process(foo)
 print(tmpdata)
 
-
-book1 <- orderbook$new()
-book1$init("bid", "GDAX", "BTC")
-book1$get_book()
-book1$add_order(1,123,100,1,0.5,0)
-book1$get_top_active_order()
-book1$add_order(2,124,200,1,0.5,0)
-book1$add_order(3,125,150,1,0.5,0)
-
 test1 <- backtest$new()
-test1$init(1, 2, "GDAX", "BTC")
+test1$init(1, 2, "GDAX", "BTC", 100000, 10)
 test1$load_stream(dt_Stream[[1]])
 test1$load_stream(dt_Stream[[2]])
-test1$make_order(timestamp = 123456, 10494.54, 5, "ask")
-test1$make_order(timestamp = 123456, 10490, 1, "bid")
-test1$make_order(timestamp = 123456, 10500, 1, "ask")
-
+test1$place_order(timestamp = 123456, 10494.54, 5, "ask")
+test1$place_order(timestamp = 123456, 10490, 1, "bid")
+test1$place_order(timestamp = 123456, 10500, 1, "ask")
 
 tmp <- pblapply(3:1000, function(i) {
   test1$load_stream(dt_Stream[[i]])
