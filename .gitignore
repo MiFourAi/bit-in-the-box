@@ -1,2 +1,14 @@
 *.DS_Store
 *.pyc
+.Rhistory
+.Rapp.history
+.RData
+.Rproj.user/
+/*.tar.gz
+vignettes/*.html
+vignettes/*.pdf
+/*_cache/
+/cache/
+*.utf8.md
+*.knit.md
+rsconnect/
