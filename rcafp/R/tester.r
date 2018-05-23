@@ -14,6 +14,8 @@ run_backtest <- function(strategy = NULL, starttime, endtime, exchange, product,
     stream <- runSubscriber(queue)
     if (is.null(stream)) break
     test$load_stream(stream)
+    #print(i)
+    #print(stream)
     ### run stragegy
     if (i == 100) {
       test$place_order(timestamp = stream$timestamp, 10300, 1, "bid")
@@ -26,7 +28,7 @@ run_backtest <- function(strategy = NULL, starttime, endtime, exchange, product,
 
 ###
 eps <<- 1e-8
-verbose <<- FALSE
+verbose <<- TRUE
 fee_rate <<- 0.003
 
 orderbook <- setRefClass(
@@ -261,6 +263,28 @@ backtest <- setRefClass(
       }
       return(invisible(NULL))
     },
+    trigger_order = function(orderID, timestamp, type, book, price, qty) {
+      if (type == "bid") {
+        hold_capital <<- hold_capital - price * qty
+        position <<- position + qty
+      } else if (type == "ask") {
+        capital <<- capital + price * qty
+        hold_position <<- hold_position - qty
+      }
+      book$add_fill_qty(orderID, qty)
+      book$update_ahead_qty(orderID, 0)
+      trans <-
+        data.table(order_ID = orderID,
+                   timestamp = timestamp,
+                   price = price,
+                   qty = qty,
+                   type = type,
+                   makerSide = ifelse(type == "bid", "b", "s"),
+                   fee = 0)
+      transaction <<- rbind(transaction, trans)
+      if (verbose) print(trans)
+      return(invisible(NULL))
+    },
     fill_order = function(stream) {
       for (i in seq_len(nrow(stream))) {
         # look through trades
@@ -285,86 +309,53 @@ backtest <- setRefClass(
         if (possible_transaction) {
           # order might be filled
           order <- book$get_top_active_order()
-          for (i in 1:20) {
-            exchange_price <- exchangebook[,get(paste0(type, "s_price_", i))]
-            exchange_qty <- exchangebook[,get(paste0(type, "s_qty_", i))]
-            # compare order, exchange and trade to re-execute trade
-            if ((type == "bid") * (exchange_price < order$price) +
-                (type == "ask") * (exchange_price > order$price)) {
-              # trigger transaction at order price, maker side
-              trade_qty <- min(to_trade_qty, order$qty - order$fill_qty)
-              if (type == "bid") {
-                hold_capital <<- hold_capital - order$price * trade_qty
-                position <<- position + trade_qty
-              } else if (type == "ask") {
-                capital <<- capital + order$price * trade_qty
-                hold_position <<- hold_position - trade_qty
-              }
-              book$add_fill_qty(order$orderID, trade_qty)
-              book$update_ahead_qty(order$orderID, 0)
-              trans <-
-                data.table(order_ID = order$orderID,
-                           timestamp = trade$timestamp,
-                           price = order$price,
-                           qty = trade_qty,
-                           type = type,
-                           makerSide = ifelse(type == "bid", "b", "s"),
-                           fee = 0)
-              transaction <<- rbind(transaction, trans)
-              to_trade_qty <- to_trade_qty - trade_qty
-              if (verbose) print(trans)
-              break
-            } else if ((type == "bid") * (exchange_price > order$price) +
-                (type == "ask") * (exchange_price < order$price)) {
-              # fill exchange first
-              trade_qty <- min(to_trade_qty, exchange_qty)
-              to_trade_qty <- to_trade_qty - trade_qty
-              exchangebook[,paste0(type, "s_qty_", i)] <<- exchange_qty - trade_qty
-              if (to_trade_qty < eps) {
-                # trade over, nothing happen
-                break
-              }
-            } else if (exchange_price == order$price) {
-              # top price but need to wait in queue
-              trade_qty <- min(to_trade_qty, exchange_qty, order$ahead_qty, na.rm = T)
-              to_trade_qty <- to_trade_qty - trade_qty
-              exchangebook[,paste0(type, "s_qty_", i)] <<- exchange_qty - trade_qty
-              if (to_trade_qty < eps) {
-                # trade over, but a little bit ahead in queue
-                book$update_ahead_qty(order$orderID, order$ahead_qty - trade_qty)
-                break
-              } else {
-                # trade triggled, maker side
+          if ((trade$price > order$price) || (trade$price == order$price && order$ahead_qty < eps)) {
+            # all exchange orders in between are filled or cancelled
+            # trigger maker side transaction at order price
+            trade_qty <- min(to_trade_qty, order$qty - order$fill_qty)
+            trigger_order(order$orderID, trade$timestamp, type, book, order$price, trade_qty)
+            to_trade_qty <- to_trade_qty - trade_qty
+          } else {
+            # trade price == order price and
+            # need to check exchange book
+            for (i in 1:20) {
+              exchange_price <- exchangebook[,get(paste0(type, "s_price_", i))]
+              exchange_qty <- exchangebook[,get(paste0(type, "s_qty_", i))]
+              if ((type == "bid") * (exchange_price > order$price) +
+                  (type == "ask") * (exchange_price < order$price)) {
+                # this exchange order must be filled or cancelled
+                # only update exchange book
+                exchangebook[,paste0(type, "s_qty_", i)] <<- 0
+              } else if (
+                (type == "bid") * (exchange_price < order$price) +
+                (type == "ask") * (exchange_price > order$price)
+              ) {
+                # this exchange order is not close to book order
+                # trigger maker side transaction at order price
                 trade_qty <- min(to_trade_qty, order$qty - order$fill_qty)
-                if (type == "bid") {
-                  hold_capital <<- hold_capital - order$price * trade_qty
-                  position <<- position + trade_qty
-                } else if (type == "ask") {
-                  capital <<- capital + order$price * trade_qty
-                  hold_position <<- hold_position - trade_qty
-                }
-                book$add_fill_qty(order$orderID, trade_qty)
-                book$update_ahead_qty(order$orderID, 0)
-                trans <-
-                  data.table(order_ID = order$orderID,
-                             timestamp = trade$timestamp,
-                             price = order$price,
-                             qty = trade_qty,
-                             type = type,
-                             makerSide = ifelse(type == "bid", "b", "s"),
-                             fee = 0)
-                transaction <<- rbind(transaction, trans)
+                trigger_order(order$orderID, trade$timestamp, type, book, order$price, trade_qty)
                 to_trade_qty <- to_trade_qty - trade_qty
-                if (verbose) print(trans)
+              } else if (exchange_price == order$price) {
+                # fill exchange order ahead of book order first
+                trade_qty <- min(to_trade_qty, exchange_qty, order$ahead_qty, na.rm = T)
+                to_trade_qty <- to_trade_qty - trade_qty
+                exchangebook[,paste0(type, "s_qty_", i)] <<- exchange_qty - trade_qty
                 if (to_trade_qty < eps) {
+                  # trade over, but a little bit ahead in queue
+                  book$update_ahead_qty(order$orderID, order$ahead_qty - trade_qty)
                   break
+                } else {
+                  # trade triggled, maker side
+                  trade_qty <- min(to_trade_qty, order$qty - order$fill_qty)
+                  trigger_order(order$orderID, trade$timestamp, type, book, order$price, trade_qty)
+                  to_trade_qty <- to_trade_qty - trade_qty
                 }
               }
-            }
-          } #loop through 20
-          #???
-          #if (type == "bid") bid_book <<- book
-          #if (type == "ask") ask_book <<- book
+              if (to_trade_qty < eps || !book$is_active(order$orderID)) {
+                break
+              }
+            } # loop through exchange orders
+          }
         } else {
           # impossible to fill
           # just update exchangebook
@@ -373,7 +364,7 @@ backtest <- setRefClass(
             exchange_price <- exchangebook[,get(paste0(type, "s_price_", i))]
             exchange_qty <- exchangebook[,get(paste0(type, "s_qty_", i))]
             if (exchange_price == trade$price) {
-              exchangebook[, paste0(type, "s_qty_", i)] <<- exchange_qty - trade$qty
+              exchangebook[, paste0(type, "s_qty_", i)] <<- max(0, exchange_qty - trade$qty)
               break
             }
           }
