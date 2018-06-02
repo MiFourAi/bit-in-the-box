@@ -1,32 +1,6 @@
 #' strategy back tester
 #'
 #' create functions/class to test different trading stragety
-#' @export
-run_backtest <- function(strategy = NULL, starttime, endtime, exchange, product, table_list) {
-  #input: tables and a trading strategy class
-  #output: orderbook and transaction record
-
-  queue <- initialSubscriber(starttime, endtime, exchange, product, table_list)
-  test <- backtest$new()
-  test$init(starttime, endtime, exchange, product, 100000, 100)
-
-  dummy <- pblapply(1:10000, function(i) {
-    stream <- runSubscriber(queue)
-    if (is.null(stream)) break
-    test$load_stream(stream)
-    #print(i)
-    #print(stream)
-    ### run stragegy
-    if (i == 100) {
-      test$place_order(timestamp = stream$timestamp, 10300, 1, "bid")
-      test$place_order(timestamp = stream$timestamp, 10700, 1, "ask")
-    }
-    return(stream)
-  })
-  return(test)
-}
-
-###
 eps <<- 1e-8
 verbose <<- TRUE
 fee_rate <<- 0.003
@@ -143,12 +117,13 @@ backtest <- setRefClass(
       return(orderID)
     },
     place_order = function(timestamp, price, qty, type) {
+      if (abs(qty) < eps) return(invisible(NULL))
       generate_orderID()
       book <- eval(parse(text = paste0(type, "_book")))
       reverse_type <- ifelse(type == "ask", "bid", "ask")
       book$add_order(orderID, timestamp, price, qty, 0, 0)
       # check market orderbook to see if it is a taker
-      for (i in 1:20) {
+      for (i in 1:5) {
         exchange_price <- exchangebook[,get(paste0(reverse_type, "s_price_", i))]
         exchange_qty <- exchangebook[,get(paste0(reverse_type, "s_qty_", i))]
         if ((type == "ask") * (exchange_price >= price) +

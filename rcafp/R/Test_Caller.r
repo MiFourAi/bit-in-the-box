@@ -1,5 +1,3 @@
-library(rcafp)
-
 # Test caller
 root_path <- "~/Downloads/Data"
 
@@ -36,8 +34,8 @@ library(pbapply)
 
 queue <- initialSubscriber(starttime, endtime, exchange_list, product_list, table_list)
 
-dt_Stream <- pblapply(1:1000, function(i) {
-  stream <- runSubscriber(queue)
+dt_Stream <- pblapply(1:10000, function(i) {
+  stream <- runSubscriberQ(queue)
   # spec <- attr(stream, "spec")
   # cat(stream$timestamp, spec[3], "\n")
   if (is.null(stream)) break
@@ -53,28 +51,9 @@ process <- function(callback) {
   }
 }
 
-tmpdata <<- c()
+data <<- c()
 foo <- function(i) {
-  tmpdata <<- c(tmpdata, i)
+  data <<- c(data, i)
 }
 process(foo)
-print(tmpdata)
-
-test1 <- backtest$new()
-test1$init(1, 2, "GDAX", "BTC", 100000, 10)
-test1$load_stream(dt_Stream[[1]])
-test1$load_stream(dt_Stream[[2]])
-test1$place_order(timestamp = 123456, 10494.54, 5, "ask")
-test1$place_order(timestamp = 123456, 10490, 1, "bid")
-test1$place_order(timestamp = 123456, 10500, 1, "ask")
-
-tmp <- pblapply(3:1000, function(i) {
-  test1$load_stream(dt_Stream[[i]])
-  # spec <- attr(stream, "spec")
-  # cat(stream$timestamp, spec[3], "\n")
-  return(NULL)
-})
-
-test <- run_backtest(strategy = NULL, starttime, endtime, exchange, product, table_list)
-
-test$transaction[qty > eps]
+print(data)
