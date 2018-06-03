@@ -1,6 +1,7 @@
 #' strategy back tester
 #'
 #' create functions/class to test different trading stragety
+require(data.table)
 eps <<- 1e-8
 verbose <<- TRUE
 fee_rate <<- 0.003
@@ -123,35 +124,37 @@ backtest <- setRefClass(
       reverse_type <- ifelse(type == "ask", "bid", "ask")
       book$add_order(orderID, timestamp, price, qty, 0, 0)
       # check market orderbook to see if it is a taker
-      for (i in 1:5) {
+      for (i in 1:20) {
         exchange_price <- exchangebook[,get(paste0(reverse_type, "s_price_", i))]
         exchange_qty <- exchangebook[,get(paste0(reverse_type, "s_qty_", i))]
-        if ((type == "ask") * (exchange_price >= price) +
-            (type == "bid") * (exchange_price <= price)) {
+        if (((type == "ask") * (exchange_price >= price) +
+            (type == "bid") * (exchange_price <= price)) & exchange_qty > 0) {
           # triggle a transaction as taker
           trade_qty <- min(qty, exchange_qty)
+          if (abs(trade_qty) < eps) return(invisible(NULL))
           if (type == "bid") {
             if (capital == 0) {
-              cat("No capital to place a bid order.")
+              cat("No capital to place a bid order.\n")
               return(invisible(NULL))
             }
             max_qty <- capital / exchange_price / (1 + fee_rate)
             if (max_qty < trade_qty) {
-              cat("Insufficient capital. A smaller bid order is placed.")
+              cat("Insufficient capital. A smaller bid order is placed.\n")
               trade_qty <- min(trade_qty, max_qty)
             }
           } else if (type == "ask") {
             if (position == 0) {
-              cat("No position to place an ask order.")
+              cat("No position to place an ask order.\n")
               return(invisible(NULL))
             }
             if (position < trade_qty) {
-              cat("Insufficient position. A smaller ask order is placed.")
+              cat("Insufficient position. A smaller ask order is placed.\n")
               trade_qty <- min(trade_qty, position)
             }
           }
           amt <- exchange_price * trade_qty
           fee <- exchange_price * trade_qty * fee_rate
+          qty <- qty - trade_qty
           if (type == "bid") {
             capital <<- capital - amt - fee
             position <<- position + trade_qty
@@ -187,17 +190,17 @@ backtest <- setRefClass(
       }
       # still have remaining qty
       # now add orderbook
-      remain_qty <- qty - as.numeric(book$get_order_info(orderID, "fill_qty"))
+      remain_qty <- qty
       # check sufficient capitals
       if (type == "bid") {
         max_qty <- capital / price
         if (max_qty < remain_qty) {
-          cat("Insufficient capital. A smaller bid order is placed.")
+          cat("Insufficient capital. A smaller bid order is placed.\n")
           remain_qty <- min(remain_qty, max_qty)
         }
       } else if (type == "ask") {
         if (position < remain_qty) {
-          cat("Insufficient position. A smaller ask order is placed.")
+          cat("Insufficient position. A smaller ask order is placed.\n")
           remain_qty <- min(remain_qty, position)
         }
       }
@@ -223,16 +226,16 @@ backtest <- setRefClass(
     cancel_order = function(ID) {
       if (bid_book$is_active(ID)) {
         type <- "bid"
-        bid_book$deactivate(ID)
         order <- bid_book$get_order(ID)
         capital <<- capital + as.numeric((order$qty - order$fill_qty) * order$price)
         hold_capital <<- hold_capital - as.numeric((order$qty - order$fill_qty) * order$price)
+        bid_book$deactive_order(ID)
       } else if (ask_book$is_active(ID)) {
         type <- "ask"
-        ask_book$deactivate(ID)
         order <- ask_book$get_order(ID)
         position <<- position + as.numeric((order$qty - order$fill_qty))
         hold_position <<- hold_position - as.numeric((order$qty - order$fill_qty))
+        ask_book$deactive_order(ID)
       } else {
         # do nothing
       }
