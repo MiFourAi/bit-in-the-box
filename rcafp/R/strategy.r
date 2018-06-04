@@ -1,10 +1,6 @@
 #' strategy class
 #'
 #' create a class for trading strategy (moving average)
-
-window <- 5 * 60 * 1000
-thres_pct <- 0.01
-
 #' @export
 strategy_ma <- setRefClass(
   "strategy_ma",
@@ -38,31 +34,31 @@ strategy_ma <- setRefClass(
         if (!burn_in) {
           # cat(stream$asks_price_1, ask_price, stream$bids_price_1, bid_price, "\n")
           if (stream$asks_price_1 > (1 + thres_pct) * ask_price) {
-            cat("Buy all!!!\n")
-            # buy all if any!!!
-            cat(stream$asks_price_1, ask_price, stream$bids_price_1, bid_price, "\n")
+            # cat(stream$asks_price_1, ask_price, stream$bids_price_1, bid_price, "\n")
             test$place_order(
               timestamp = stream$timestamp + 1,
               price = stream$asks_price_1,
-              qty = 1000,
+              qty = 1,
               type = "bid")
           }
           if (stream$bids_price_1 < (1 - thres_pct) * bid_price) {
-            # sell all if any!!!
-            cat("Sell all!!!\n")
-            cat(stream$asks_price_1, ask_price, stream$bids_price_1, bid_price, "\n")
+            # cat(stream$asks_price_1, ask_price, stream$bids_price_1, bid_price, "\n")
             test$place_order(
               timestamp = stream$timestamp + 1,
               price = stream$bids_price_1,
-              qty = 1000,
+              qty = 1,
               type = "bid")
           }
         }
       }
     },
     get_price = function(exchange_order, start_ts) {
+      if (nrow(exchange_order_book) == 0) {
+        exchange_order_book <<- rbind(exchange_order_book, exchange_order)
+      } else {
+        exchange_order_book <<- rbind(exchange_order_book[timestamp >= start_ts], exchange_order)
+      }
       past_orders <- exchange_order_book[timestamp < start_ts]
-      exchange_order_book <<- rbind(exchange_order_book[timestamp >= start_ts], exchange_order)
       bid_sum <<- bid_sum + exchange_order$bids_price_1 - sum(past_orders$bids_price_1)
       bid_sum_2 <<- bid_sum_2 + (exchange_order$bids_price_1)^2 - sum((past_orders$bids_price_1)^2)
       bid_n <<- bid_n + 1 - nrow(past_orders)

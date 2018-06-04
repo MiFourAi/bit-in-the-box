@@ -1,8 +1,8 @@
-# code_path <- "~/Google Drive/Projects/crypto/bit-in-the-box"
+# code_path <- "~/Google Drive/Projects/crypto/bit-in-the-box/rcafp"
 code_path <- getwd()
 library(devtools)
 library(roxygen2)
-build_path <- file.path(code_path, "rcafp")
+build_path <- file.path(code_path)
 setwd(build_path)
 document()
 setwd("..")

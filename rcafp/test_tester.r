@@ -3,8 +3,8 @@ root_path <- "~/Downloads/Data"
 exchange <- "GDAX"
 product <- "BTC"
 table_list <- c("orderBook", "Trade")
-starttime = "20180117T120000"
-endtime = "20180117T123000"
+starttime <- "20180117T120000"
+endtime <- "20180117T123000"
 
 # initialization
 queue <- initialSubscriber(starttime, endtime, exchange, product, table_list)
@@ -85,4 +85,7 @@ test$cancel_order(1)
 test$cancel_order(5)
 test
 
+# keep streaming until limit order trigger
+do <- replicate(100, test$load_stream(runSubscriber(queue)))
 
+test

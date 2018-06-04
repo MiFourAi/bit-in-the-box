@@ -118,34 +118,42 @@ backtest <- setRefClass(
       if (abs(qty) < eps) return(invisible(NULL))
       generate_orderID()
       book <- eval(parse(text = paste0(type, "_book")))
+      if ((type == "bid") & capital < eps) {
+        if (verbose) cat("No capital to place a bid order.\n")
+        return(invisible(NULL))
+      }
+      if ((type == "ask") & position < eps) {
+        if (verbose) cat("No position to place an ask order.\n")
+        return(invisible(NULL))
+      }
       reverse_type <- ifelse(type == "ask", "bid", "ask")
       book$add_order(orderID, timestamp, price, qty, 0, 0)
       # check market orderbook to see if it is a taker
-      for (i in 1:20) {
+      for (i in 1:max_exchange_order_ind) {
         exchange_price <- exchangebook[,get(paste0(reverse_type, "s_price_", i))]
         exchange_qty <- exchangebook[,get(paste0(reverse_type, "s_qty_", i))]
         if (((type == "ask") * (exchange_price >= price) +
             (type == "bid") * (exchange_price <= price)) & exchange_qty > 0) {
           # triggle a transaction as taker
           trade_qty <- min(qty, exchange_qty)
-          if (abs(trade_qty) < eps) return(invisible(NULL))
+          if (trade_qty < eps) return(invisible(NULL))
           if (type == "bid") {
-            if (capital == 0) {
-              cat("No capital to place a bid order.\n")
+            if (capital < eps) {
+              if (verbose) cat("No capital to place a bid order.\n")
               return(invisible(NULL))
             }
             max_qty <- capital / exchange_price / (1 + fee_rate)
             if (max_qty < trade_qty) {
-              cat("Insufficient capital. A smaller bid order is placed.\n")
+              if (verbose) cat("Insufficient capital. A smaller bid order is placed.\n")
               trade_qty <- min(trade_qty, max_qty)
             }
           } else if (type == "ask") {
-            if (position == 0) {
-              cat("No position to place an ask order.\n")
+            if (position < eps) {
+              if (verbose) cat("No position to place an ask order.\n")
               return(invisible(NULL))
             }
             if (position < trade_qty) {
-              cat("Insufficient position. A smaller ask order is placed.\n")
+              if (verbose) cat("Insufficient position. A smaller ask order is placed.\n")
               trade_qty <- min(trade_qty, position)
             }
           }
@@ -192,12 +200,12 @@ backtest <- setRefClass(
       if (type == "bid") {
         max_qty <- capital / price
         if (max_qty < remain_qty) {
-          cat("Insufficient capital. A smaller bid order is placed.\n")
+          if (verbose) cat("Insufficient capital. A smaller bid order is placed.\n")
           remain_qty <- min(remain_qty, max_qty)
         }
       } else if (type == "ask") {
         if (position < remain_qty) {
-          cat("Insufficient position. A smaller ask order is placed.\n")
+          if (verbose) cat("Insufficient position. A smaller ask order is placed.\n")
           remain_qty <- min(remain_qty, position)
         }
       }
@@ -210,7 +218,7 @@ backtest <- setRefClass(
         position <<- position - remain_qty
       }
       # check market orderbook to see how many qty of same price ahead of this order
-      for (i in 1:20) {
+      for (i in 1:max_exchange_order_ind) {
         exchange_price <- exchangebook[,get(paste0(type, "s_price_", i))]
         exchange_qty <- exchangebook[,get(paste0(type, "s_qty_", i))]
         if (exchange_price == price) {
@@ -293,7 +301,7 @@ backtest <- setRefClass(
           } else {
             # trade price == order price and
             # need to check exchange book
-            for (i in 1:20) {
+            for (i in 1:max_exchange_order_ind) {
               exchange_price <- exchangebook[,get(paste0(type, "s_price_", i))]
               exchange_qty <- exchangebook[,get(paste0(type, "s_qty_", i))]
               if ((type == "bid") * (exchange_price > order$price) +
@@ -335,7 +343,7 @@ backtest <- setRefClass(
           # impossible to fill
           # just update exchangebook
           type <- ifelse(trade$price <= exchangebook$bids_price_1, "bid", "ask")
-          for (i in 1:20) {
+          for (i in 1:max_exchange_order_ind) {
             exchange_price <- exchangebook[,get(paste0(type, "s_price_", i))]
             exchange_qty <- exchangebook[,get(paste0(type, "s_qty_", i))]
             if (exchange_price == trade$price) {
