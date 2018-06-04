@@ -39,26 +39,11 @@ queue <- initialSubscriber(starttime, endtime, exchange_list, product_list, tabl
 
 dt_Stream <- pblapply(1:1000, function(i) {
   stream <- runSubscriber(queue)
-  # spec <- attr(stream, "spec")
-  # cat(stream$timestamp, spec[3], "\n")
   if (is.null(stream)) break
   return(stream)
 })
 
 showConnections(all = T)
 closeAllConnections()
-
-# process <- function(callback) {
-#   for (i in c(1,2,3)) {
-#     callback(i)
-#   }
-# }
-#
-# tmpdata <<- c()
-# foo <- function(i) {
-#   tmpdata <<- c(tmpdata, i)
-# }
-# process(foo)
-# print(tmpdata)
 
 test <- run_backtest(strategy = NULL, starttime, endtime, exchange, product, table_list, root_path)
