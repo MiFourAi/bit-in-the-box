@@ -1,5 +1,6 @@
 #' main caller
 #'
+#' @export
 run_backtest <- function(strategy = NULL, starttime, endtime, exchange, product, table_list) {
   #input: tables and a trading strategy class
   #output: orderbook and transaction record

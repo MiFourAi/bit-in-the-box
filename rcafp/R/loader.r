@@ -1,8 +1,6 @@
 #' data loader
 #'
 #' This package allows you to load Cryptocurrency data
-#' @export
-root_path <- "~/Downloads/Data"
 
 ### list all files in one folder
 #' @export
@@ -41,7 +39,7 @@ csvDriver <- function(starttime, endtime, exchange, product, path, table) {
 
 ### load and stack all files for one type of table
 #' @export
-runQuery <- function(starttime, endtime, exchange_list, product_list, table) {
+runQuery <- function(starttime, endtime, exchange_list, product_list, table, root_path) {
   # query data
   startdate <- as.Date(substr(starttime, 1, 8), "%Y%m%d")
   enddate <- as.Date(substr(endtime, 1, 8), "%Y%m%d")
@@ -64,7 +62,7 @@ runQuery <- function(starttime, endtime, exchange_list, product_list, table) {
 
 ### initiate Subscriber runs for a list of specs
 #' @export
-initialSubscriber <- function(starttime, endtime, exchange_list, product_list, table_list) {
+initialSubscriber <- function(starttime, endtime, exchange_list, product_list, table_list, root_path) {
   require(liqueueR, quietly = T, warn.conflicts = F)
   require(iterators, quietly = T, warn.conflicts = F)
   require(itertools, quietly = T, warn.conflicts = F)
@@ -167,10 +165,12 @@ csvStreamer <- function(iter_obj) {
 }
 
 # utility function
+#' @export
 epoch_to_timestamp <- function(epoch) {
   return(as.numeric(strptime(epoch, "%Y%m%dT%H%M%S"))*1000)
 }
 
+#' @export
 timestamp_to_epoch <- function(timestamp) {
   return(strftime(as.POSIXct(timestamp/1000, origin = "1970-01-01 00:00:00"), "%Y%m%dT%H%M%S"))
 }

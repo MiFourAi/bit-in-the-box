@@ -1,11 +1,7 @@
 #' strategy back tester
 #'
 #' create functions/class to test different trading stragety
-require(data.table)
-eps <<- 1e-8
-verbose <<- TRUE
-fee_rate <<- 0.003
-
+#' @export
 orderbook <- setRefClass(
   "orderbook",
   fields = c("book", "history", "exchange", "product", "type"),
@@ -77,6 +73,7 @@ orderbook <- setRefClass(
   )
 )
 
+#' @export
 backtest <- setRefClass(
   "backtest",
   fields = c("starttime", "endtime", "exchange", "product",
